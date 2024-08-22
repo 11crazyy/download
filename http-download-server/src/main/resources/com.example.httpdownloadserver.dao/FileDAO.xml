@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.httpdownloadserver.dao.FileDAO">
+    <resultMap id="settingsResultMap" type="com.example.httpdownloadserver.dataobject.FileDO">
+        <result column="id" jdbcType="BIGINT" property="id"/>
+        <result column="file_type" jdbcType="VARCHAR" property="fileType"/>
+        <result column="file_name" jdbcType="VARCHAR" property="fileName"/>
+        <result column="size" jdbcType="DOUBLE" property="size"/>
+        <result column="gmt_created" jdbcType="TIMESTAMP" property="gmtCreated"/>
+        <result column="gmt_modified" jdbcType="TIMESTAMP" property="gmtModified"/>
+    </resultMap>
+    <insert id="insert">
+        insert into file (file_type, file_name, size, gmt_created, gmt_modified)
+        values (#{fileType,jdbcType=VARCHAR}, #{fileName,jdbcType=VARCHAR}, #{size,jdbcType=DOUBLE}, now(), now())
+    </insert>
+    <select id="order" resultType="com.example.httpdownloadserver.dataobject.FileDO" parameterType="com.example.httpdownloadserver.param.FileQueryParam">
+        select * from file
+        <where>
+            <if test="fileType != null">
+                and file_type = #{fileType}
+            </if>
+        </where>
+        <choose>
+            <when test="orderType == 'name'">
+                order by file_name
+            </when>
+            <when test="orderType == 'size'">
+                order by size
+            </when>
+            <otherwise>
+                order by gmt_created
+            </otherwise>
+        </choose>
+        <if test="orderAsc != null and orderAsc">
+            asc
+        </if>
+        <if test="orderAsc != null and !orderAsc">
+            desc
+        </if>
+    </select>
+    <select id="pageQuery" resultType="com.example.httpdownloadserver.dataobject.FileDO">
+        select id, file_type, file_name, size, gmt_created, gmt_modified from file
+        <where>
+            <if test="fileType != null">
+                and file_type = #{fileType}
+            </if>
+        </where>
+        order by gmt_created desc
+        limit #{offset}, #{limit}
+    </select>
+
+
+</mapper>
