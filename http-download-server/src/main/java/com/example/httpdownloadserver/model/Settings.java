@@ -5,7 +5,6 @@ import lombok.Data;
 @Data
 public class Settings {
     private Long id;
-    private String downloadPath;
-    private int maxThreadNum;
-    private int maxDownloadSpeed;
+    private String settingName;
+    private String settingValue;
 }

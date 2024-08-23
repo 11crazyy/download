@@ -9,7 +9,7 @@ public interface SettingsService {
      * @param settings
      * @return
      */
-    int updateSettings(Settings settings);
+    int save(Settings settings);
 
     /**
      * 获取配置信息

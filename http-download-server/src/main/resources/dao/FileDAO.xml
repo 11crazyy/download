@@ -14,8 +14,9 @@
         insert into file (file_type, file_name, size, gmt_created, gmt_modified)
         values (#{fileType,jdbcType=VARCHAR}, #{fileName,jdbcType=VARCHAR}, #{size,jdbcType=DOUBLE}, now(), now())
     </insert>
-    <select id="order" resultType="com.example.httpdownloadserver.dataobject.FileDO" parameterType="com.example.httpdownloadserver.param.FileQueryParam">
-        select * from file
+    <select id="order" resultType="com.example.httpdownloadserver.dataobject.FileDO"
+            parameterType="com.example.httpdownloadserver.param.FileQueryParam">
+        select id, file_type, file_name, size, gmt_created, gmt_modified from file
         <where>
             <if test="fileType != null">
                 and file_type = #{fileType}
@@ -46,9 +47,12 @@
                 and file_type = #{fileType}
             </if>
         </where>
-        order by gmt_created desc
-        limit #{offset}, #{limit}
+        <bind name="currentIndex" value="pagination*pageSize"/>
+        limit #{currentIndex}, #{pageSize}
     </select>
-
+    <select id="selectAllCounts" resultType="int">
+        select count(1)
+        from file
+    </select>
 
 </mapper>

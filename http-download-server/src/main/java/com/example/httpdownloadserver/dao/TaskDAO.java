@@ -1,11 +1,9 @@
 package com.example.httpdownloadserver.dao;
 
 import com.example.httpdownloadserver.dataobject.TaskDO;
-import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;
 
-@Mapper
 public interface TaskDAO {
     //增加任务
     int insert(TaskDO taskDO);

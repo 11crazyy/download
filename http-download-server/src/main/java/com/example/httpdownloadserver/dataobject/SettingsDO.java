@@ -9,24 +9,21 @@ import java.time.LocalDateTime;
 @Data
 public class SettingsDO {
     private Long id;
-    private String downloadPath;
-    private int maxThreadNum;
-    private int maxDownloadSpeed;
+    private String settingName;
+    private String settingValue;
     private Timestamp gmtCreated;
     private Timestamp gmtModified;
 
     public SettingsDO(Settings settings){
         this.id = settings.getId();
-        this.downloadPath = settings.getDownloadPath();
-        this.maxThreadNum = settings.getMaxThreadNum();
-        this.maxDownloadSpeed = settings.getMaxDownloadSpeed();
+        this.settingName = settings.getSettingName();
+        this.settingValue = settings.getSettingValue();
     }
     public Settings toModel(){
         Settings settings = new Settings();
         settings.setId(this.id);
-        settings.setDownloadPath(this.downloadPath);
-        settings.setMaxThreadNum(this.maxThreadNum);
-        settings.setMaxDownloadSpeed(this.maxDownloadSpeed);
+        settings.setSettingValue(this.settingValue);
+        settings.setSettingName(this.settingName);
         return settings;
     }
 }

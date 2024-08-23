@@ -1,8 +1,10 @@
 package com.example.httpdownloadserver.model;
 
+import lombok.Data;
+
 import java.io.Serializable;
 import java.util.List;
-
+@Data
 public class Paging<R> implements Serializable {
 
     private static final long serialVersionUID = 522660448543880825L;
