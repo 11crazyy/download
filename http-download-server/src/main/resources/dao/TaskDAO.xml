@@ -31,6 +31,14 @@
         select id, status, download_speed, download_progress, download_remaining_time, gmt_created, gmt_modified from task
         where status = #{status}
     </select>
+    <delete id="deleteByIds">
+        delete
+        from task
+        where id in
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
 
 
 </mapper>

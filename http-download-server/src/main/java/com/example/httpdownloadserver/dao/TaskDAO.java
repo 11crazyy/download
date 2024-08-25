@@ -19,5 +19,7 @@ public interface TaskDAO {
 
     //根据任务状态查询任务
     List<TaskDO> selectByStatus(String status);
+    //根据所选列表删除文件
+    int deleteByIds(List<Long> ids);
 
 }

@@ -20,7 +20,7 @@ public class TaskDO {
     private Timestamp gmtCreated;
     private Timestamp gmtModified;
 
-    public TaskDO(Task task){
+    public TaskDO(Task task) {
         this.id = task.getId();
         this.status = String.valueOf(task.getStatus());
         this.downloadSpeed = task.getDownloadSpeed();
@@ -30,7 +30,8 @@ public class TaskDO {
         this.downloadPath = task.getDownloadPath();
         this.downloadLink = task.getDownloadLink();
     }
-    public Task toModel(){
+
+    public Task toModel() {
         Task task = new Task();
         task.setId(this.id);
         task.setStatus(TaskStatus.valueOf(this.status));

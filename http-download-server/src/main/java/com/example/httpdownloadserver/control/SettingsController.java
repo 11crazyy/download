@@ -1,8 +1,10 @@
 package com.example.httpdownloadserver.control;
 
 import com.example.httpdownloadserver.dataobject.SettingsDO;
-import com.example.httpdownloadserver.model.Settings;
+import com.example.httpdownloadserver.model.Result;
 import com.example.httpdownloadserver.service.SettingsService;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,7 +23,12 @@ public class SettingsController {
      */
     @PostMapping("/settings/save")
     @ResponseBody
-    public int saveSettings(@RequestBody SettingsDO settingsDO) {
-        return settingsService.save(settingsDO.toModel());
+    public Result<Integer> saveSettings(@RequestBody SettingsDO settingsDO) {
+        Result<Integer> result = new Result<>();
+        Logger logger = (Logger) LogManager.getLogger(SettingsController.class);
+        logger.info("save settings");
+        result.setData(settingsService.save(settingsDO.toModel()));
+        result.setSuccess(true);
+        return result;
     }
 }

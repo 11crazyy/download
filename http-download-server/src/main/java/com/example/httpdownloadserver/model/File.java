@@ -9,8 +9,9 @@ import java.time.LocalDateTime;
 public class File {
     private Long id;
     private FileType fileType;
+    private String url;
     private String fileName;
-    private Double size;
+    private Long size;
     private Timestamp createTime;
 
 }

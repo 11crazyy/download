@@ -1,36 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.httpdownloadserver.dao.SettingsDAO">
     <resultMap id="BaseResultMap" type="com.example.httpdownloadserver.dataobject.SettingsDO">
-        <result column="id" jdbcType="BIGINT" property="id"/>
-        <result column="download_path" jdbcType="VARCHAR" property="downloadPath"/>
-        <result column="max_thread_num" jdbcType="INTEGER" property="maxThreadNum"/>
-        <result column="max_download_speed" jdbcType="INTEGER" property="maxDownloadSpeed"/>
+        <id column="id" jdbcType="BIGINT" property="id"/>
         <result column="gmt_created" jdbcType="TIMESTAMP" property="gmtCreated"/>
         <result column="gmt_modified" jdbcType="TIMESTAMP" property="gmtModified"/>
+        <result column="setting_name" jdbcType="VARCHAR" property="settingName"/>
+        <result column="setting_value" jdbcType="VARCHAR" property="settingValue"/>
     </resultMap>
-    <update id="updateById" parameterType="com.example.httpdownloadserver.dataobject.SettingsDO">
-        update settings
-        <set>
-            <if test="downloadPath != null">
-                download_path=#{downloadPath},
-            </if>
-            <if test="maxThreadNum != null">
-                max_thread_num=#{maxThreadNum},
-            </if>
-            <if test="maxDownloadSpeed != null">
-                max_download_speed=#{maxDownloadSpeed},
-            </if>
-        </set>
-        where id=#{id}
-    </update>
-    <select id="get" resultMap="BaseResultMap">
-        select download_path, max_download_speed, max_thread_num, gmt_created, gmt_modified, id from settings
-        where 1
-    </select>
-    <insert id="add" parameterType="com.example.httpdownloadserver.dataobject.SettingsDO">
-        insert into settings (download_path, max_download_speed, max_thread_num, gmt_created, gmt_modified)
-        values (#{downloadPath}, #{maxDownloadSpeed}, #{maxThreadNum}, now(), now())
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.Long">
+        delete
+        from settings
+        where id = #{id,jdbcType=BIGINT}
+    </delete>
+    <insert id="insert" parameterType="com.example.httpdownloadserver.dataobject.SettingsDO">
+        insert into settings (id, gmt_created, gmt_modified,
+                              setting_name, setting_value)
+        values (#{id,jdbcType=BIGINT}, #{gmtCreated,jdbcType=TIMESTAMP}, #{gmtModified,jdbcType=TIMESTAMP},
+                #{settingName,jdbcType=VARCHAR}, #{settingValue,jdbcType=VARCHAR})
     </insert>
+    <update id="updateByPrimaryKey" parameterType="com.example.httpdownloadserver.dataobject.SettingsDO">
+        update settings
+        set gmt_created   = #{gmtCreated,jdbcType=TIMESTAMP},
+            gmt_modified  = #{gmtModified,jdbcType=TIMESTAMP},
+            setting_name  = #{settingName,jdbcType=VARCHAR},
+            setting_value = #{settingValue,jdbcType=VARCHAR}
+        where id = #{id,jdbcType=BIGINT}
+    </update>
+    <select id="selectByName" parameterType="java.lang.String" resultMap="BaseResultMap">
+        select id, gmt_created, gmt_modified, setting_name, setting_value
+        from settings
+        where setting_name = #{settingName,jdbcType=VARCHAR}
+    </select>
+    <select id="selectAll" resultMap="BaseResultMap">
+        select id, gmt_created, gmt_modified, setting_name, setting_value
+        from settings
+    </select>
 </mapper>

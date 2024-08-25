@@ -6,17 +6,18 @@
         <result column="id" jdbcType="BIGINT" property="id"/>
         <result column="file_type" jdbcType="VARCHAR" property="fileType"/>
         <result column="file_name" jdbcType="VARCHAR" property="fileName"/>
-        <result column="size" jdbcType="DOUBLE" property="size"/>
+        <result column="url" jdbcType="VARCHAR" property="url"/>
+        <result column="size" jdbcType="BIGINT" property="size"/>
         <result column="gmt_created" jdbcType="TIMESTAMP" property="gmtCreated"/>
         <result column="gmt_modified" jdbcType="TIMESTAMP" property="gmtModified"/>
     </resultMap>
     <insert id="insert">
-        insert into file (file_type, file_name, size, gmt_created, gmt_modified)
-        values (#{fileType,jdbcType=VARCHAR}, #{fileName,jdbcType=VARCHAR}, #{size,jdbcType=DOUBLE}, now(), now())
+        insert into file (file_type, file_name, size, url, gmt_created, gmt_modified)
+        values (#{fileType}, #{fileName}, #{size}, #{url}, now(), now())
     </insert>
     <select id="order" resultType="com.example.httpdownloadserver.dataobject.FileDO"
             parameterType="com.example.httpdownloadserver.param.FileQueryParam">
-        select id, file_type, file_name, size, gmt_created, gmt_modified from file
+        select id, file_type, file_name, size,url, gmt_created, gmt_modified from file
         <where>
             <if test="fileType != null">
                 and file_type = #{fileType}
@@ -41,7 +42,7 @@
         </if>
     </select>
     <select id="pageQuery" resultType="com.example.httpdownloadserver.dataobject.FileDO">
-        select id, file_type, file_name, size, gmt_created, gmt_modified from file
+        select id, file_type, file_name, size,url, gmt_created, gmt_modified from file
         <where>
             <if test="fileType != null">
                 and file_type = #{fileType}

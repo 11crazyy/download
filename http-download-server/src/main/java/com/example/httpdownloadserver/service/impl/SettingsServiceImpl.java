@@ -6,27 +6,32 @@ import com.example.httpdownloadserver.model.Settings;
 import com.example.httpdownloadserver.service.SettingsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.apache.commons.lang3.StringUtils;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
-public class SettingsServiceImpl implements SettingsService {
+public class SettingsServiceImpl implements SettingsService{
     @Autowired
     private SettingsDAO settingsDAO;
     @Override
     public int save(Settings settings) {
-        int result = settingsDAO.updateById(new SettingsDO(settings));
-        if (result == 0){
-            result = settingsDAO.add(new SettingsDO(settings));
+        //如果数据库有数据则直接修改 没有则添加
+        SettingsDO settingsDO = settingsDAO.selectByName(settings.getSettingName());
+        if (settingsDO == null){
+            return settingsDAO.insert(new SettingsDO(settings));
         }
-        return result;
+        return settingsDAO.updateByPrimaryKey(settingsDO);
+
     }
 
     @Override
-    public Settings getSettings() {
-        SettingsDO settingsDO = settingsDAO.get();
-        if (settingsDO == null){
-            return null;
+    public List<Settings> getSettings() {
+        List<SettingsDO> settingsDOS = settingsDAO.selectAll();
+        List<Settings> result = new ArrayList<>();
+        for (SettingsDO settingsDO : settingsDOS) {
+            result.add(settingsDO.toModel());
         }
-        return settingsDO.toModel();
+        return result;
     }
 }

@@ -6,8 +6,8 @@ import com.example.httpdownloadserver.model.Result;
 import com.example.httpdownloadserver.param.FileQueryParam;
 import com.example.httpdownloadserver.param.PageQueryParam;
 import com.example.httpdownloadserver.service.FileService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,19 +16,25 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.util.List;
 
-//private static final Logger logger = LoggerFactory.getLogger(FileController.class);
 
 @Controller
 public class FileController {
+    Logger logger = (Logger) LogManager.getLogger(FileController.class);
     @Autowired
     private FileService fileService;
-    //按类型筛选文件 按文件名或文件大小或文件创建时间给文件列表排序
+
+    /**
+     * 按类型筛选文件 按文件名或文件大小或文件创建时间给文件列表排序
+     * @param param
+     * @return
+     */
     @PostMapping("/file/list")
     @ResponseBody
     public Result<List<File>> listFiles(@RequestBody FileQueryParam param) {
         Result<List<File>> result = new Result<>();
-        if (param == null){
+        if (param == null) {
             result.setSuccess(false);
+            logger.warn("filequeryparam is null");
             result.setMessage("param is null");
             return result;
         }
@@ -36,13 +42,24 @@ public class FileController {
         result.setSuccess(true);
         return result;
     }
-    //分页排序文件
+
+    /**
+     * 分页排序文件
+     * @param param
+     * @return
+     */
     @PostMapping("/file/page")
     @ResponseBody
     public Result<Paging<File>> pageFiles(@RequestBody PageQueryParam param) {
         Result<Paging<File>> result = new Result<>();
-        if (param == null){
+        if (param == null) {
+            logger.warn("pagequeryparam is null");
+            result.setMessage("param is null");
+            result.setSuccess(false);
+        } else {
+            result.setSuccess(true);
+            result.setData(fileService.pageQuery(param));
         }
-        return null;
+        return result;
     }
 }

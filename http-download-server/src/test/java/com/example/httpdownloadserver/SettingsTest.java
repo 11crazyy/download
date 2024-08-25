@@ -14,10 +14,9 @@ public class SettingsTest extends HttpDownloadServerApplicationTests {
     public void test() {
 //        Settings settings = new Settings();
 //        settings.setId(1L);
-//        settings.setDownloadPath("C:\\Users\\Administrator\\Desktop\\test");
-//        settings.setMaxDownloadSpeed(1024);
-//        settings.setMaxThreadNum(10);
+//        settings.setSettingName("maxThread");
+//        settings.setSettingValue("5");
 //        settingsService.save(settings);
-//        assertEquals(10, settingsService.getSettings().getMaxThreadNum());
+//        assertEquals("5", settingsService.getSettings().get(0).getSettingName());
     }
 }

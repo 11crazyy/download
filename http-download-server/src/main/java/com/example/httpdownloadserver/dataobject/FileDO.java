@@ -10,13 +10,15 @@ import java.time.LocalDateTime;
 @Data
 public class FileDO {
     private Long id;
+    private String url;
     private String fileType;
     private String fileName;
-    private Double size;
+    private Long size;
     private Timestamp gmtCreated;
     private Timestamp gmtModified;
     public FileDO(File file){
         this.id = file.getId();
+        this.url = file.getUrl();
         this.fileType = file.getFileType().name();
         this.fileName = file.getFileName();
         this.size = file.getSize();
@@ -25,6 +27,7 @@ public class FileDO {
     public File toModel(){
         File file = new File();
         file.setId(this.id);
+        file.setUrl(this.url);
         file.setFileType(FileType.valueOf(this.fileType));
         file.setFileName(this.fileName);
         file.setSize(this.size);

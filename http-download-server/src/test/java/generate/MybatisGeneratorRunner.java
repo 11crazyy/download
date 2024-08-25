@@ -20,7 +20,7 @@ public class MybatisGeneratorRunner {
 
     public static void main(String[] args) throws InvalidConfigurationException, SQLException, IOException, InterruptedException {
         Context context = new Context(ModelType.FLAT);
-        context.setId("kumiko");
+        context.setId("downloadserver");
         context.setTargetRuntime("Mybatis3Simple");
         context.addProperty("beginningDelimiter", "`");
         context.addProperty("endingDelimiter", "`");
@@ -88,7 +88,7 @@ public class MybatisGeneratorRunner {
 
     private static void addCommentGenerator(Context context) {
         CommentGeneratorConfiguration commentGeneratorConfiguration = new CommentGeneratorConfiguration();
-        commentGeneratorConfiguration.setConfigurationType("wiki.moe.kumiko.util.RegularCommentGenerator");
+        //commentGeneratorConfiguration.setConfigurationType("com.example.httpdownloadserver.util.RegularCommentGenerator");
         commentGeneratorConfiguration.addProperty("author", "zy");
         commentGeneratorConfiguration.addProperty("suppressDate", "true");
         commentGeneratorConfiguration.addProperty("suppressAllComments", "true");
@@ -97,8 +97,8 @@ public class MybatisGeneratorRunner {
 
     private static void generateModel(Context context) {
         JavaModelGeneratorConfiguration configuration = new JavaModelGeneratorConfiguration();
-        configuration.setTargetPackage("wiki.moe.kumiko.dal.dataobject");
-        configuration.setTargetProject("src/main/java");
+        configuration.setTargetPackage("com.example.httpserver.dataobject");
+        configuration.setTargetProject("http-download-server/src/main/java");
         configuration.addProperty("enableSubPackages", "true");
         configuration.addProperty("trimStrings", "false");
         context.setJavaModelGeneratorConfiguration(configuration);
@@ -106,16 +106,16 @@ public class MybatisGeneratorRunner {
 
     private static void generateSqlMap(Context context) {
         SqlMapGeneratorConfiguration configuration = new SqlMapGeneratorConfiguration();
-        configuration.setTargetPackage("mapper");
-        configuration.setTargetProject("src/main/resources");
+        configuration.setTargetPackage("dao");
+        configuration.setTargetProject("http-download-server/src/main/resources");
         context.setSqlMapGeneratorConfiguration(configuration);
     }
 
     private static void generateJavaClient(Context context) {
         JavaClientGeneratorConfiguration configuration = new JavaClientGeneratorConfiguration();
         configuration.setConfigurationType("XMLMAPPER");
-        configuration.setTargetPackage("wiki.moe.kumiko.dal.mapper");
-        configuration.setTargetProject("src/main/java");
+        configuration.setTargetPackage("com.example.httpdownloadserver.dao");
+        configuration.setTargetProject("http-download-server/src/main/java");
         configuration.addProperty("enableSubPackages", "true");
         context.setJavaClientGeneratorConfiguration(configuration);
     }

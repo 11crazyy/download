@@ -1,7 +1,8 @@
 package com.example.httpdownloadserver.service;
 
-import com.example.httpdownloadserver.dataobject.SettingsDO;
 import com.example.httpdownloadserver.model.Settings;
+
+import java.util.List;
 
 public interface SettingsService {
     /**
@@ -15,5 +16,5 @@ public interface SettingsService {
      * 获取配置信息
      * @return
      */
-    Settings getSettings();
+    List<Settings> getSettings();
 }
