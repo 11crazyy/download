@@ -11,6 +11,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class DownloadServiceImpl implements DownloadService {
@@ -33,13 +35,21 @@ public class DownloadServiceImpl implements DownloadService {
         int sliceSize = sliceSize(fileSize);
         //线程数
         int threadNum = Integer.parseInt(settingsDAO.selectByName("threadNum").getSettingValue());
+        AtomicLong downloaded = new AtomicLong(0);
         ExecutorService executor = Executors.newFixedThreadPool(threadNum);
         for (int i = 0; i < threadNum; i++) {
             long startIndex = (long) i * sliceSize;
             long endIndex = (i == threadNum - 1) ? fileSize - 1 : startIndex + sliceSize - 1;
-            executor.execute(new DownloadTask(file.getUrl(), settingsDAO.selectByName("downloadPath").getSettingValue(), startIndex, endIndex));//线程逻辑：负责任务调度
+            executor.execute(new DownloadTask(file.getUrl(), settingsDAO.selectByName("downloadPath").getSettingValue(), startIndex, endIndex, downloaded,fileSize));//线程逻辑：负责任务调度
         }
         executor.shutdown();
+        try {
+            if (!executor.awaitTermination(10, TimeUnit.MINUTES)){
+                executor.shutdown();//不再接收新任务 但会让已提交的任务继续执行 直到所有任务完成 新任务不再被接受
+            }
+        } catch (InterruptedException e) {
+            executor.shutdownNow();//尝试停止所有正在执行的任务 返回尚未执行的任务列表 会终端所有正在等待的任务
+        }
         connection.disconnect();
     }
 
