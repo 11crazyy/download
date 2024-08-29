@@ -22,7 +22,6 @@ public class SettingsServiceImpl implements SettingsService{
             return settingsDAO.insert(new SettingsDO(settings));
         }
         return settingsDAO.updateByPrimaryKey(settingsDO);
-
     }
 
     @Override

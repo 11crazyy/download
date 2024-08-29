@@ -11,30 +11,30 @@ public interface TaskService {
     Task submitDownload(String url);
     /**
      * 重新开始下载任务
-     * @param url
+     * @param taskId
      * @return
      */
-    boolean restartDownload(String url);
+    boolean restartDownload(Long taskId);
 
     /**
      * 暂停下载任务
-     * @param url
+     * @param taskId
      * @return
      */
-    boolean pauseDownload(String url);
+    boolean pauseDownload(Long taskId);
 
     /**
      * 继续下载任务
-     * @param url
+     * @param taskId
      * @return
      */
-    boolean resumeDownload(String url);
+    boolean resumeDownload(Long taskId);
 
     /**
      * 取消下载任务
-     * @param url
+     * @param taskId
      * @return
      */
-    boolean cancelDownload(String url);
+    boolean cancelDownload(Long taskId);
 
 }

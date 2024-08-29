@@ -19,6 +19,9 @@ public class TaskDO {
     private String downloadLink;
     private Timestamp gmtCreated;
     private Timestamp gmtModified;
+    public TaskDO(){
+
+    }
 
     public TaskDO(Task task) {
         this.id = task.getId();

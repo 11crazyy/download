@@ -22,37 +22,37 @@ public class TaskController {
 
     /**
      * 重新开始下载任务
-     * @param url
+     * @param id
      * @return
      */
-    public boolean startDownload(String url) {
-        return taskService.restartDownload(url);
+    public boolean startDownload(Long id) {
+        return taskService.restartDownload(id);
     }
 
     /**
      * 暂停下载任务
-     * @param url
+     * @param id
      * @return
      */
-    public boolean pauseDownload(String url) {
-        return taskService.pauseDownload(url);
+    public boolean pauseDownload(Long id) {
+        return taskService.pauseDownload(id);
     }
 
     /**
      * 继续下载任务
-     * @param url
+     * @param id
      * @return
      */
-    public boolean resumeDownload(String url) {
-        return taskService.resumeDownload(url);
+    public boolean resumeDownload(Long id) {
+        return taskService.resumeDownload(id);
     }
 
     /**
      * 取消下载任务
-     * @param url
+     * @param id
      * @return
      */
-    public boolean cancelDownload(String url) {
-        return taskService.cancelDownload(url);
+    public boolean cancelDownload(Long id) {
+        return taskService.cancelDownload(id);
     }
 }
