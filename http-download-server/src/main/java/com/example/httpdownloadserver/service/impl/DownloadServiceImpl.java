@@ -5,6 +5,7 @@ import com.example.httpdownloadserver.dao.TaskDAO;
 import com.example.httpdownloadserver.model.File;
 import com.example.httpdownloadserver.model.Task;
 import com.example.httpdownloadserver.service.DownloadService;
+import com.google.common.util.concurrent.RateLimiter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -42,6 +43,8 @@ public class DownloadServiceImpl implements DownloadService {
         int sliceNum = (int) Math.ceil((double) fileSize / sliceSize);
         //线程数
         int threadNum = Integer.parseInt(settingsDAO.selectByName("threadNum").getSettingValue());
+        //rateLimiter实现限速
+        RateLimiter rateLimiter = RateLimiter.create(Double.parseDouble(settingsDAO.selectByName("downloadSpeed").getSettingValue()));//每秒不超过指定的下载速度对应的字节数
         AtomicLong downloaded = new AtomicLong(0);
         AtomicInteger currentSlice = new AtomicInteger(0);
         ExecutorService executor = Executors.newFixedThreadPool(threadNum);
@@ -49,7 +52,7 @@ public class DownloadServiceImpl implements DownloadService {
         for (int i = sliceIndex; i < sliceNum; i++) {
             long startIndex = (long) i * sliceSize;
             long endIndex = (i == sliceNum - 1) ? fileSize - 1 : startIndex + sliceSize - 1;
-            executor.execute(new DownloadTask(task, settingsDAO.selectByName("downloadPath").getSettingValue(), startIndex, endIndex, downloaded, fileSize, currentSlice, taskDAO));//线程逻辑：负责任务调度
+            executor.execute(new DownloadTask(task, settingsDAO.selectByName("downloadPath").getSettingValue(), startIndex, endIndex, downloaded, fileSize, currentSlice, taskDAO,rateLimiter));//线程逻辑：负责任务调度
         }
         executor.shutdown();
         try {

@@ -2,6 +2,7 @@ package com.example.httpdownloadserver.service.impl;
 
 import com.example.httpdownloadserver.dao.TaskDAO;
 import com.example.httpdownloadserver.model.Task;
+import com.google.common.util.concurrent.RateLimiter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
 
@@ -15,18 +16,18 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class DownloadTask implements Runnable {
     Logger logger = (Logger) LogManager.getLogger(DownloadTask.class);
-    private String fileUrl;
-    private String destination;
-    private Long startIndex;//开始下载位置
-    private Long endIndex;//结束下载位置
+    private final String fileUrl;
+    private final String destination;
+    private final Long startIndex;//开始下载位置
+    private final Long endIndex;//结束下载位置
+    private final AtomicLong bytesDownloaded;
+    private final Long totalFileSize;
+    private final Task task;//计算剩余时间等属性
+    private final AtomicInteger currentSlice;
+    private final TaskDAO taskDAO;
+    private final RateLimiter rateLimiter;
 
-    private AtomicLong bytesDownloaded;
-    private Long totalFileSize;
-    private Task task;//计算剩余时间等属性
-    private AtomicInteger currentSlice;
-    private TaskDAO taskDAO;
-
-    public DownloadTask(Task task, String destination, Long startIndex, Long endIndex, AtomicLong bytesDownloaded, Long totalFileSize, AtomicInteger currentSlice, TaskDAO taskDAO) {
+    public DownloadTask(Task task, String destination, Long startIndex, Long endIndex, AtomicLong bytesDownloaded, Long totalFileSize, AtomicInteger currentSlice, TaskDAO taskDAO, RateLimiter rateLimiter) {
         this.task = task;
         this.fileUrl = task.getDownloadLink();
         this.destination = destination;
@@ -36,6 +37,7 @@ public class DownloadTask implements Runnable {
         this.totalFileSize = totalFileSize;
         this.currentSlice = currentSlice;
         this.taskDAO = taskDAO;
+        this.rateLimiter = rateLimiter;
     }
 
     //任务逻辑：下载任务 计算剩余时间 下载进度 以及下载速度
@@ -57,6 +59,8 @@ public class DownloadTask implements Runnable {
                 if (Thread.currentThread().isInterrupted()) {
                     break;
                 }
+                //控制下载速度
+                rateLimiter.acquire(bytesRead);//请求下载所需的令牌
                 bytesDownloaded.addAndGet(bytesRead);
                 raf.write(buffer, 0, bytesRead);
                 //计算下载速度

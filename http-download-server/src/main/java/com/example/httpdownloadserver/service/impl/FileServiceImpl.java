@@ -66,7 +66,6 @@ public class FileServiceImpl implements FileService {
             }
         }
         result.setData(fileList);
-
         return result;
     }
 }
