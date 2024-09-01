@@ -17,6 +17,7 @@ public class TaskDO {
     private int downloadThread;
     private String downloadPath;
     private String downloadLink;
+    private int currentSlice;
     private Timestamp gmtCreated;
     private Timestamp gmtModified;
     public TaskDO(){
@@ -30,6 +31,7 @@ public class TaskDO {
         this.downloadProgress = task.getDownloadProgress();
         this.downloadRemainingTime = task.getDownloadRemainingTime();
         this.downloadThread = task.getDownloadThread();
+        this.currentSlice = getCurrentSlice();
         this.downloadPath = task.getDownloadPath();
         this.downloadLink = task.getDownloadLink();
     }
@@ -37,6 +39,7 @@ public class TaskDO {
     public Task toModel() {
         Task task = new Task();
         task.setId(this.id);
+        task.setCurrentSlice(currentSlice);
         task.setStatus(TaskStatus.valueOf(this.status));
         task.setDownloadSpeed(this.downloadSpeed);
         task.setDownloadProgress(this.downloadProgress);

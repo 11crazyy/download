@@ -1,5 +1,7 @@
 package com.example.httpdownloadserver.service.impl;
 
+import com.example.httpdownloadserver.dao.TaskDAO;
+import com.example.httpdownloadserver.model.Task;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
 
@@ -8,11 +10,11 @@ import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class DownloadTask implements Runnable {
     Logger logger = (Logger) LogManager.getLogger(DownloadTask.class);
-
     private String fileUrl;
     private String destination;
     private Long startIndex;//开始下载位置
@@ -20,14 +22,20 @@ public class DownloadTask implements Runnable {
 
     private AtomicLong bytesDownloaded;
     private Long totalFileSize;
+    private Task task;//计算剩余时间等属性
+    private AtomicInteger currentSlice;
+    private TaskDAO taskDAO;
 
-    public DownloadTask(String fileUrl, String destination, Long startIndex, Long endIndex, AtomicLong bytesDownloaded,Long totalFileSize) {
-        this.fileUrl = fileUrl;
+    public DownloadTask(Task task, String destination, Long startIndex, Long endIndex, AtomicLong bytesDownloaded, Long totalFileSize, AtomicInteger currentSlice, TaskDAO taskDAO) {
+        this.task = task;
+        this.fileUrl = task.getDownloadLink();
         this.destination = destination;
         this.endIndex = endIndex;
         this.startIndex = startIndex;
         this.bytesDownloaded = bytesDownloaded;
         this.totalFileSize = totalFileSize;
+        this.currentSlice = currentSlice;
+        this.taskDAO = taskDAO;
     }
 
     //任务逻辑：下载任务 计算剩余时间 下载进度 以及下载速度
@@ -45,25 +53,35 @@ public class DownloadTask implements Runnable {
             int bytesRead;
             long startTime = System.currentTimeMillis();//开始时间
             while ((bytesRead = inputStream.read(buffer, 0, buffer.length)) != -1) {
+                //检查线程是否被中断
+                if (Thread.currentThread().isInterrupted()) {
+                    break;
+                }
                 bytesDownloaded.addAndGet(bytesRead);
                 raf.write(buffer, 0, bytesRead);
                 //计算下载速度
                 long currentTime = System.currentTimeMillis();
                 long elapsedTime = currentTime - startTime;
                 double downloadSpeed = bytesDownloaded.get() / (elapsedTime / 1000.0);
+                task.setDownloadSpeed(downloadSpeed / 1024);//单位KB/s
                 //计算下载进度
                 double progress = (double) bytesDownloaded.get() / totalFileSize * 100;
+                task.setDownloadProgress((int) (progress));
                 //计算剩余时间
                 long remainingBytes = totalFileSize - bytesDownloaded.get();
-                double remainingTime = remainingBytes / downloadSpeed;
-
+                double remainingTime = remainingBytes / downloadSpeed;//剩余时间 单位s
+                task.setDownloadRemainingTime((long) remainingTime);
                 logger.info(String.format("下载进度：%.2f%%, 下载速度：%.2fKB/s, 剩余时间：%.2f秒\n", progress, downloadSpeed / 1024, remainingTime));
             }
             //关闭流
             raf.close();
             inputStream.close();
-            logger.info("切片下载完成：" + startIndex + "-" + endIndex);
+            logger.info("索引为 " + currentSlice + " 的切片下载完成,该切片字节范围为：" + startIndex + " - " + endIndex);
             connection.disconnect();
+            //分片下载完成 更新currentSlice和数据库
+            currentSlice.incrementAndGet();
+            task.setCurrentSlice(currentSlice.get());
+            taskDAO.updateById(task.getId());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

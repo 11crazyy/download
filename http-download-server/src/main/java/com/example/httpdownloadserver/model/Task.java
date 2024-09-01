@@ -12,4 +12,5 @@ public class Task {
     private int downloadThread;
     private String downloadPath;
     private String downloadLink;
+    private int currentSlice;//当前下载到的切片的索引值
 }

@@ -8,12 +8,15 @@
         <result column="download_speed" jdbcType="DOUBLE" property="downloadSpeed"/>
         <result column="download_progress" jdbcType="INTEGER" property="downloadProgress"/>
         <result column="download_remaining_time" jdbcType="INTEGER" property="downloadProgress"/>
+        <result column="current_slice" jdbcType="INTEGER" property="currentSlice"/>
         <result column="gmt_created" jdbcType="TIMESTAMP" property="gmtCreated"/>
         <result column="gmt_modified" jdbcType="TIMESTAMP" property="gmtModified"/>
     </resultMap>
     <insert id="insert">
-        insert into task (status, download_speed, download_progress, download_remaining_time, gmt_created, gmt_modified)
-        values (#{status,jdbcType=VARCHAR}, #{downloadSpeed,jdbcType=DOUBLE}, #{downloadProgress,jdbcType=INTEGER}, #{downloadRemainingTime,jdbcType=INTEGER}, now(), now())
+        insert into task (status, download_speed, download_progress, download_remaining_time, current_slice,
+                          gmt_created, gmt_modified)
+        values (#{status,jdbcType=VARCHAR}, #{downloadSpeed,jdbcType=DOUBLE}, #{downloadProgress,jdbcType=INTEGER},
+                #{downloadRemainingTime,jdbcType=INTEGER}, #{currentSlice,jdbcType=INTEGER}, now(), now())
     </insert>
     <delete id="deleteById">
         delete
@@ -21,14 +24,39 @@
         where id = #{id}
     </delete>
     <select id="selectById" resultType="com.example.httpdownloadserver.dataobject.TaskDO">
-        select id, status, download_speed, download_progress, download_remaining_time, gmt_created, gmt_modified from task
+        select id,
+               status,
+               download_speed,
+               download_progress,
+               download_remaining_time,
+               current_slice,
+               gmt_created,
+               gmt_modified
+        from task
         where id = #{id}
     </select>
     <select id="selectAll" resultType="com.example.httpdownloadserver.dataobject.TaskDO">
-        select id, status, download_speed, download_progress, download_remaining_time, gmt_created, gmt_modified from task
+        select id,
+               status,
+               download_speed,
+               download_progress,
+               download_remaining_time,
+               current_slice,
+               gmt_created,
+               gmt_modified
+        from task
     </select>
-    <select id="selectByStatus" resultType="com.example.httpdownloadserver.dataobject.TaskDO" parameterType="java.lang.String">
-        select id, status, download_speed, download_progress, download_remaining_time, gmt_created, gmt_modified from task
+    <select id="selectByStatus" resultType="com.example.httpdownloadserver.dataobject.TaskDO"
+            parameterType="java.lang.String">
+        select id,
+               status,
+               download_speed,
+               download_progress,
+               download_remaining_time,
+               current_slice,
+               gmt_created,
+               gmt_modified
+        from task
         where status = #{status}
     </select>
     <delete id="deleteByIds">
@@ -39,6 +67,16 @@
             #{id}
         </foreach>
     </delete>
+    <update id="updateById" parameterType="int">
+        update task
+        set status = #{status},
+            download_speed = #{downloadSpeed},
+            download_progress = #{downloadProgress},
+            download_remaining_time = #{downloadRemainingTime},
+            current_slice = #{currentSlice},
+            gmt_modified = now()
+        where id = #{id}
+    </update>
 
 
 </mapper>
