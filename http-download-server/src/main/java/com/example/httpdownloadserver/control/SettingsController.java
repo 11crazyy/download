@@ -2,6 +2,7 @@ package com.example.httpdownloadserver.control;
 
 import com.example.httpdownloadserver.dataobject.SettingsDO;
 import com.example.httpdownloadserver.model.Result;
+import com.example.httpdownloadserver.model.Settings;
 import com.example.httpdownloadserver.service.SettingsService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
@@ -18,16 +19,16 @@ public class SettingsController {
 
     /**
      * 保存修改后的设置信息
-     * @param settingsDO
+     * @param settings
      * @return
      */
     @PostMapping("/settings/save")
     @ResponseBody
-    public Result<Integer> saveSettings(@RequestBody SettingsDO settingsDO) {
+    public Result<Integer> saveSettings(@RequestBody Settings settings) {
         Result<Integer> result = new Result<>();
         Logger logger = (Logger) LogManager.getLogger(SettingsController.class);
         logger.info("save settings");
-        result.setData(settingsService.save(settingsDO.toModel()));
+        result.setData(settingsService.save(settings));
         result.setSuccess(true);
         return result;
     }

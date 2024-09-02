@@ -8,14 +8,14 @@ import com.example.httpdownloadserver.service.DownloadService;
 import com.google.common.util.concurrent.RateLimiter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import org.yaml.snakeyaml.emitter.Emitter;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.Map;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -26,9 +26,12 @@ public class DownloadServiceImpl implements DownloadService {
     private SettingsDAO settingsDAO;
     @Autowired
     private TaskDAO taskDAO;
+    private static final Map<String,SseEmitter> emitters = new ConcurrentHashMap<>();
 
     @Override
     public void download(Task task) throws IOException {
+        SseEmitter emitter = new SseEmitter();
+        emitters.put(task.getId().toString(),emitter);
         //创建url对象
         URL url = new URL(task.getDownloadLink());
         //打开连接
@@ -52,7 +55,7 @@ public class DownloadServiceImpl implements DownloadService {
         for (int i = sliceIndex; i < sliceNum; i++) {
             long startIndex = (long) i * sliceSize;
             long endIndex = (i == sliceNum - 1) ? fileSize - 1 : startIndex + sliceSize - 1;
-            executor.execute(new DownloadTask(task, settingsDAO.selectByName("downloadPath").getSettingValue(), startIndex, endIndex, downloaded, fileSize, currentSlice, taskDAO,rateLimiter));//线程逻辑：负责任务调度
+            executor.execute(new DownloadTask(task, settingsDAO.selectByName("downloadPath").getSettingValue(), startIndex, endIndex, downloaded, fileSize, currentSlice, taskDAO,rateLimiter,emitter));//线程逻辑：负责任务调度
         }
         executor.shutdown();
         try {
@@ -63,6 +66,14 @@ public class DownloadServiceImpl implements DownloadService {
             executor.shutdownNow();//尝试停止所有正在执行的任务 返回尚未执行的任务列表 会终端所有正在等待的任务
         }
         connection.disconnect();
+    }
+
+    @Override
+    public SseEmitter getEmitter(String taskId) {
+        if (emitters.containsKey(taskId)){
+            return emitters.get(taskId);
+        }
+        return null;
     }
 
     public int sliceSize(Long fileSize) {

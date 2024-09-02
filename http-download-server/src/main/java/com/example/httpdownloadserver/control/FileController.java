@@ -44,7 +44,7 @@ public class FileController {
     }
 
     /**
-     * 分页排序文件
+     * 分页查询文件
      * @param param
      * @return
      */

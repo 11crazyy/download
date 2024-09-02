@@ -10,6 +10,8 @@ import com.example.httpdownloadserver.service.DownloadService;
 import com.example.httpdownloadserver.service.TaskService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import org.yaml.snakeyaml.emitter.Emitter;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -35,7 +37,7 @@ public class TaskServiceImpl implements TaskService {
         TaskDO taskDO = new TaskDO();
         taskDO.setDownloadLink(url);
         taskDO.setDownloadPath(settingsDAO.selectByName("downloadPath").getSettingValue());
-        taskDO.setDownloadThread(Integer.parseInt(settingsDAO.selectByName("threadCount").getSettingValue()));
+        taskDO.setDownloadThread(Integer.parseInt(settingsDAO.selectByName("threadNum").getSettingValue()));
         taskDO.setStatus(String.valueOf(TaskStatus.Pending));
         taskDAO.insert(taskDO);
         //将任务信息存到下载队列中
@@ -104,11 +106,86 @@ public class TaskServiceImpl implements TaskService {
     public boolean cancelDownload(Long id) {
         Future<?> future = taskFutures.get(id);
         if (future != null) {
-            future.cancel(true);
+            future.cancel(true);//取消下载任务
+            //根据taskId获得相应的emitter 并用complete关闭连接
+            SseEmitter emitter = downloadService.getEmitter(String.valueOf(id));
+            if (emitter != null) {
+                emitter.complete();
+            }
             taskFutures.remove(id);
             taskDAO.deleteById(id);
             return true;
         }
         return false;
+    }
+
+    @Override
+    public boolean restartDownloads(List<Long> taskIds) {
+        if (taskIds == null || taskIds.isEmpty()) {
+            return false;
+        }
+        for (Long taskId : taskIds) {
+            restartDownload(taskId);
+        }
+        return true;
+    }
+
+    @Override
+    public boolean cancelDownloads(List<Long> taskIds) {
+        if (taskIds == null || taskIds.isEmpty()) {
+            return false;
+        }
+        for (Long taskId : taskIds) {
+            cancelDownload(taskId);
+        }
+        return true;
+    }
+
+    @Override
+    public boolean pauseDownloads(List<Long> taskIds) {
+        if (taskIds == null || taskIds.isEmpty()) {
+            return false;
+        }
+        for (Long taskId : taskIds) {
+            pauseDownload(taskId);
+        }
+        return true;
+    }
+
+    @Override
+    public boolean resumeDownloads(List<Long> taskIds) {
+        if (taskIds == null || taskIds.isEmpty()) {
+            return false;
+        }
+        for (Long taskId : taskIds) {
+            resumeDownload(taskId);
+        }
+        return true;
+    }
+
+    @Override
+    public boolean deleteDownloads(List<Long> taskIds) {
+        if (taskIds == null || taskIds.isEmpty()) {
+            return false;
+        }
+        for (Long taskId : taskIds) {
+            cancelDownload(taskId);
+        }
+        return true;
+    }
+
+    @Override
+    public int getThreadCount(int threadCount) {
+        return threadCount;
+    }
+
+    @Override
+    public List<Task> listByStatus(String status) {
+        List<TaskDO> taskDOS = taskDAO.selectByStatus(status);
+        List<Task> tasks = new ArrayList<>();
+        for (TaskDO taskDO : taskDOS) {
+            tasks.add(taskDO.toModel());
+        }
+        return tasks;
     }
 }

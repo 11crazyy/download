@@ -1,10 +1,12 @@
 package com.example.httpdownloadserver.service.impl;
 
 import com.example.httpdownloadserver.dao.TaskDAO;
+import com.example.httpdownloadserver.model.DownloadProgress;
 import com.example.httpdownloadserver.model.Task;
 import com.google.common.util.concurrent.RateLimiter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,8 +28,9 @@ public class DownloadTask implements Runnable {
     private final AtomicInteger currentSlice;
     private final TaskDAO taskDAO;
     private final RateLimiter rateLimiter;
+    private final SseEmitter emitter;
 
-    public DownloadTask(Task task, String destination, Long startIndex, Long endIndex, AtomicLong bytesDownloaded, Long totalFileSize, AtomicInteger currentSlice, TaskDAO taskDAO, RateLimiter rateLimiter) {
+    public DownloadTask(Task task, String destination, Long startIndex, Long endIndex, AtomicLong bytesDownloaded, Long totalFileSize, AtomicInteger currentSlice, TaskDAO taskDAO, RateLimiter rateLimiter,SseEmitter emitter) {
         this.task = task;
         this.fileUrl = task.getDownloadLink();
         this.destination = destination;
@@ -38,6 +41,7 @@ public class DownloadTask implements Runnable {
         this.currentSlice = currentSlice;
         this.taskDAO = taskDAO;
         this.rateLimiter = rateLimiter;
+        this.emitter = emitter;
     }
 
     //任务逻辑：下载任务 计算剩余时间 下载进度 以及下载速度
@@ -76,7 +80,9 @@ public class DownloadTask implements Runnable {
                 double remainingTime = remainingBytes / downloadSpeed;//剩余时间 单位s
                 task.setDownloadRemainingTime((long) remainingTime);
                 logger.info(String.format("下载进度：%.2f%%, 下载速度：%.2fKB/s, 剩余时间：%.2f秒\n", progress, downloadSpeed / 1024, remainingTime));
+                emitter.send(new DownloadProgress((int) progress, downloadSpeed / 1024, (long) remainingTime, task.getDownloadPath()));
             }
+            emitter.complete();
             //关闭流
             raf.close();
             inputStream.close();
@@ -86,7 +92,9 @@ public class DownloadTask implements Runnable {
             currentSlice.incrementAndGet();
             task.setCurrentSlice(currentSlice.get());
             taskDAO.updateById(task.getId());
+
         } catch (IOException e) {
+            emitter.completeWithError(e);
             throw new RuntimeException(e);
         }
     }

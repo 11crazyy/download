@@ -3,21 +3,42 @@ package com.example.httpdownloadserver.control;
 import com.example.httpdownloadserver.model.Result;
 import com.example.httpdownloadserver.model.Task;
 import com.example.httpdownloadserver.service.TaskService;
+import org.apache.ibatis.annotations.Param;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import java.util.List;
 
 @Controller
 public class TaskController {
     @Autowired
     private TaskService taskService;
+    Logger logger = (Logger) LogManager.getLogger(TaskController.class);
     /**
      * 提交下载任务
      * @param url
      * @return
      */
-    public Result<Task> submitDownload(String url) {
+    @PostMapping("/task/submit")
+    @ResponseBody
+    public Result<Task> submitDownload(@RequestBody String url) {
+        Result<Task> result = new Result<>();
         Task task = taskService.submitDownload(url);
-        return null;
+        if (task != null) {
+            result.setSuccess(true);
+            result.setData(task);
+            logger.info("submit task success");
+        } else {
+            result.setSuccess(false);
+            logger.warn("submit task failed");
+        }
+        return result;
     }
 
     /**
@@ -25,8 +46,19 @@ public class TaskController {
      * @param id
      * @return
      */
-    public boolean startDownload(Long id) {
-        return taskService.restartDownload(id);
+    @PostMapping("/task/restart")
+    @ResponseBody
+    public Result<Boolean> restartDownload(@RequestBody Long id) {
+        Result<Boolean> result = new Result<>();
+        boolean success = taskService.restartDownload(id);
+        if (success) {
+            result.setSuccess(true);
+            logger.info("restart task success");
+        } else {
+            result.setSuccess(false);
+            logger.warn("restart task failed");
+        }
+        return result;
     }
 
     /**
@@ -34,8 +66,19 @@ public class TaskController {
      * @param id
      * @return
      */
-    public boolean pauseDownload(Long id) {
-        return taskService.pauseDownload(id);
+    @PostMapping("/task/pause")
+    @ResponseBody
+    public Result<Boolean> pauseDownload(@RequestBody Long id) {
+        Result<Boolean> result = new Result<>();
+        boolean success = taskService.pauseDownload(id);
+        if (success) {
+            result.setSuccess(true);
+            logger.info("pause task success");
+        } else {
+            result.setSuccess(false);
+            logger.warn("pause task failed");
+        }
+        return result;
     }
 
     /**
@@ -43,16 +86,109 @@ public class TaskController {
      * @param id
      * @return
      */
-    public boolean resumeDownload(Long id) {
-        return taskService.resumeDownload(id);
+    @PostMapping("/task/resume")
+    @ResponseBody
+    public Result<Boolean> resumeDownload(@RequestBody Long id) {
+        Result<Boolean> result = new Result<>();
+        boolean success = taskService.resumeDownload(id);
+        if (success) {
+            result.setSuccess(true);
+            logger.info("resume task success");
+        } else {
+            result.setSuccess(false);
+            logger.warn("resume task failed");
+        }
+        return result;
     }
 
     /**
-     * 取消下载任务
+     * 所选文件取消下载
      * @param id
      * @return
      */
-    public boolean cancelDownload(Long id) {
-        return taskService.cancelDownload(id);
+    @PostMapping("/task/cancel")
+    @ResponseBody
+    public Result<Boolean> cancelDownload(@RequestBody Long id) {
+        Result<Boolean> result = new Result<>();
+        boolean success = taskService.cancelDownload(id);
+        if (success) {
+            result.setSuccess(true);
+            logger.info("cancel task success");
+        } else {
+            result.setSuccess(false);
+            logger.warn("cancel task failed");
+        }
+        return result;
+    }
+    /**
+     * 所选文件重新开始下载
+     * @param ids
+     * @return
+     */
+    @PostMapping("/tasks/restart")
+    @ResponseBody
+    public Result<Boolean> startDownloads(@RequestBody List<Long> ids) {
+        Result<Boolean> result = new Result<>();
+        boolean success = taskService.restartDownloads(ids);
+        if (success) {
+            result.setSuccess(true);
+            logger.info("restart tasks success");
+        } else {
+            result.setSuccess(false);
+            logger.warn("restart tasks failed");
+        }
+        return result;
+    }
+
+    /**
+     * 所选文件暂停下载
+     * @param ids
+     * @return
+     */
+    @PostMapping("/tasks/pause")
+    @ResponseBody
+    public boolean pauseDownloads(@RequestBody List<Long> ids) {
+        return false;
+    }
+
+    /**
+     * 所选文件继续下载
+     * @param ids
+     * @return
+     */
+    @PostMapping("/tasks/resume")
+    @ResponseBody
+    public boolean resumeDownloads(@RequestBody List<Long> ids) {
+        return false;
+    }
+
+    /**
+     * 所选文件取消下载
+     * @param ids
+     * @return
+     */
+    @PostMapping("/tasks/cancel")
+    @ResponseBody
+    public boolean cancelDownloads(@RequestBody List<Long> ids) {
+        return false;
+    }
+
+    /**
+     * 获取线程数
+     * @return
+     */
+    @GetMapping("/thread/get")
+    @ResponseBody
+    public int getThread(){
+        return 0;
+    }
+
+    /**
+     * 根据下载状态筛选任务
+     * @param status
+     * @return
+     */
+    public List<Task> filterTasks(@RequestBody String status) {
+        return null;
     }
 }
