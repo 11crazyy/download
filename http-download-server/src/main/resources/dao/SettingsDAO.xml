@@ -18,6 +18,7 @@
                               setting_name, setting_value)
         values (#{id,jdbcType=BIGINT}, #{gmtCreated,jdbcType=TIMESTAMP}, #{gmtModified,jdbcType=TIMESTAMP},
                 #{settingName,jdbcType=VARCHAR}, #{settingValue,jdbcType=VARCHAR})
+        on duplicate key update setting_value = #{settingValue,jdbcType=VARCHAR}
     </insert>
     <update id="updateByPrimaryKey" parameterType="com.example.httpdownloadserver.dataobject.SettingsDO">
         update settings

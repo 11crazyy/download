@@ -4,12 +4,10 @@ import com.example.httpdownloadserver.model.Result;
 import com.example.httpdownloadserver.model.Task;
 import com.example.httpdownloadserver.param.ThreadUpdateParam;
 import com.example.httpdownloadserver.service.TaskService;
-import org.apache.ibatis.annotations.Param;
 import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -20,7 +18,7 @@ import java.util.List;
 public class TaskController {
     @Autowired
     private TaskService taskService;
-    Logger logger = (Logger) LogManager.getLogger(TaskController.class);
+    private static final Logger LOGGER = LogManager.getLogger(TaskController.class);
     /**
      * 提交下载任务
      * @param url
@@ -34,10 +32,10 @@ public class TaskController {
         if (task != null) {
             result.setSuccess(true);
             result.setData(task);
-            logger.info("submit task success");
+            LOGGER.info("submit task success");
         } else {
             result.setSuccess(false);
-            logger.warn("submit task failed");
+            LOGGER.warn("submit task failed");
         }
         return result;
     }
@@ -54,10 +52,10 @@ public class TaskController {
         boolean success = taskService.restartDownload(id);
         if (success) {
             result.setSuccess(true);
-            logger.info("restart task success");
+            LOGGER.info("restart task success");
         } else {
             result.setSuccess(false);
-            logger.warn("restart task failed");
+            LOGGER.warn("restart task failed");
         }
         return result;
     }
@@ -74,10 +72,10 @@ public class TaskController {
         boolean success = taskService.pauseDownload(id);
         if (success) {
             result.setSuccess(true);
-            logger.info("pause task success");
+            LOGGER.info("pause task success");
         } else {
             result.setSuccess(false);
-            logger.warn("pause task failed");
+            LOGGER.warn("pause task failed");
         }
         return result;
     }
@@ -94,10 +92,10 @@ public class TaskController {
         boolean success = taskService.resumeDownload(id);
         if (success) {
             result.setSuccess(true);
-            logger.info("resume task success");
+            LOGGER.info("resume task success");
         } else {
             result.setSuccess(false);
-            logger.warn("resume task failed");
+            LOGGER.warn("resume task failed");
         }
         return result;
     }
@@ -114,10 +112,10 @@ public class TaskController {
         boolean success = taskService.cancelDownload(id);
         if (success) {
             result.setSuccess(true);
-            logger.info("cancel task success");
+            LOGGER.info("cancel task success");
         } else {
             result.setSuccess(false);
-            logger.warn("cancel task failed");
+            LOGGER.warn("cancel task failed");
         }
         return result;
     }
@@ -133,10 +131,10 @@ public class TaskController {
         boolean success = taskService.restartDownloads(ids);
         if (success) {
             result.setSuccess(true);
-            logger.info("restart tasks success");
+            LOGGER.info("restart tasks success");
         } else {
             result.setSuccess(false);
-            logger.warn("restart tasks failed");
+            LOGGER.warn("restart tasks failed");
         }
         return result;
     }
