@@ -26,12 +26,12 @@ public class DownloadServiceImpl implements DownloadService {
     private SettingsDAO settingsDAO;
     @Autowired
     private TaskDAO taskDAO;
-    private static final Map<String,SseEmitter> emitters = new ConcurrentHashMap<>();
+    private static final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
 
     @Override
-    public void download(Task task) throws IOException {
+    public void download(Task task, int threadNum) throws IOException {
         SseEmitter emitter = new SseEmitter();
-        emitters.put(task.getId().toString(),emitter);
+        emitters.put(task.getId().toString(), emitter);
         //创建url对象
         URL url = new URL(task.getDownloadLink());
         //打开连接
@@ -44,8 +44,6 @@ public class DownloadServiceImpl implements DownloadService {
         int sliceSize = sliceSize(fileSize);
         //切片个数
         int sliceNum = (int) Math.ceil((double) fileSize / sliceSize);
-        //线程数
-        int threadNum = Integer.parseInt(settingsDAO.selectByName("threadNum").getSettingValue());
         //rateLimiter实现限速
         RateLimiter rateLimiter = RateLimiter.create(Double.parseDouble(settingsDAO.selectByName("downloadSpeed").getSettingValue()));//每秒不超过指定的下载速度对应的字节数
         AtomicLong downloaded = new AtomicLong(0);
@@ -55,7 +53,7 @@ public class DownloadServiceImpl implements DownloadService {
         for (int i = sliceIndex; i < sliceNum; i++) {
             long startIndex = (long) i * sliceSize;
             long endIndex = (i == sliceNum - 1) ? fileSize - 1 : startIndex + sliceSize - 1;
-            executor.execute(new DownloadTask(task, settingsDAO.selectByName("downloadPath").getSettingValue(), startIndex, endIndex, downloaded, fileSize, currentSlice, taskDAO,rateLimiter,emitter));//线程逻辑：负责任务调度
+            executor.execute(new DownloadTask(task, settingsDAO.selectByName("downloadPath").getSettingValue(), startIndex, endIndex, downloaded, fileSize, currentSlice, taskDAO, rateLimiter, emitter));//线程逻辑：负责任务调度
         }
         executor.shutdown();
         try {
@@ -70,7 +68,7 @@ public class DownloadServiceImpl implements DownloadService {
 
     @Override
     public SseEmitter getEmitter(String taskId) {
-        if (emitters.containsKey(taskId)){
+        if (emitters.containsKey(taskId)) {
             return emitters.get(taskId);
         }
         return null;
@@ -85,5 +83,4 @@ public class DownloadServiceImpl implements DownloadService {
             return 50 * 1024 * 1024;//50MB;
         }
     }
-
 }

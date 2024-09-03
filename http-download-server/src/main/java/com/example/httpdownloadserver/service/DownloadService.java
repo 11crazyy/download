@@ -10,10 +10,18 @@ import java.io.IOException;
 public interface DownloadService {
     /**
      * 下载文件
+     *
      * @param task
      * @return
      */
-    void download(Task task) throws IOException;
+    void download(Task task, int threadNum) throws IOException;
+
+    /**
+     * 根据id获得SseEmitter
+     *
+     * @param taskId
+     * @return
+     */
 
     SseEmitter getEmitter(String taskId);
 }

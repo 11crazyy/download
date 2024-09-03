@@ -53,7 +53,7 @@ public class TaskServiceImpl implements TaskService {
             if (task != null) {
                 Future<?> future = executor.submit(() -> {
                     try {
-                        downloadService.download(task);
+                        downloadService.download(task,getThreadCount(task.getId()));
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -93,7 +93,7 @@ public class TaskServiceImpl implements TaskService {
         int sliceIndex = task.getCurrentSlice();
         Future<?> future = executor.submit(() -> {
             try {
-                downloadService.download(task);
+                downloadService.download(task,getThreadCount(task.getId()));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -175,8 +175,13 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public int getThreadCount(int threadCount) {
-        return threadCount;
+    public int updateThreadCount(Long taskId,int threadNum) {
+        return taskDAO.updateThreadById(taskId,threadNum);
+    }
+
+    @Override
+    public int getThreadCount(Long taskId) {
+        return taskDAO.getThreadById(taskId);
     }
 
     @Override

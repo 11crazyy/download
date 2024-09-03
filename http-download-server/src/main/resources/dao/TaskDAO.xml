@@ -9,14 +9,33 @@
         <result column="download_progress" jdbcType="INTEGER" property="downloadProgress"/>
         <result column="download_remaining_time" jdbcType="INTEGER" property="downloadProgress"/>
         <result column="current_slice" jdbcType="INTEGER" property="currentSlice"/>
+        <result column="download_thread" jdbcType="INTEGER" property="downloadThread"/>
+        <result column="download_path" jdbcType="VARCHAR" property="downloadPath"/>
+        <result column="download_link" jdbcType="VARCHAR" property="downloadLink"/>
         <result column="gmt_created" jdbcType="TIMESTAMP" property="gmtCreated"/>
         <result column="gmt_modified" jdbcType="TIMESTAMP" property="gmtModified"/>
     </resultMap>
     <insert id="insert">
-        insert into task (status, download_speed, download_progress, download_remaining_time, current_slice,
-                          gmt_created, gmt_modified)
-        values (#{status,jdbcType=VARCHAR}, #{downloadSpeed,jdbcType=DOUBLE}, #{downloadProgress,jdbcType=INTEGER},
-                #{downloadRemainingTime,jdbcType=INTEGER}, #{currentSlice,jdbcType=INTEGER}, now(), now())
+        insert into task (status,
+                          download_speed,
+                          download_progress,
+                          download_remaining_time,
+                          current_slice,
+                          download_thread,
+                          download_path,
+                          download_link,
+                          gmt_created,
+                          gmt_modified)
+        values (#{status},
+                #{downloadSpeed},
+                #{downloadProgress},
+                #{downloadRemainingTime},
+                #{currentSlice},
+                #{downloadThread},
+                #{downloadPath},
+                #{downloadLink},
+                now(),
+                now())
     </insert>
     <delete id="deleteById">
         delete
@@ -30,6 +49,9 @@
                download_progress,
                download_remaining_time,
                current_slice,
+               download_thread,
+               download_path,
+               download_link,
                gmt_created,
                gmt_modified
         from task
@@ -42,6 +64,9 @@
                download_progress,
                download_remaining_time,
                current_slice,
+               download_thread,
+               download_path,
+               download_link,
                gmt_created,
                gmt_modified
         from task
@@ -54,6 +79,9 @@
                download_progress,
                download_remaining_time,
                current_slice,
+               download_thread,
+               download_path,
+               download_link,
                gmt_created,
                gmt_modified
         from task
@@ -67,16 +95,28 @@
             #{id}
         </foreach>
     </delete>
-    <update id="updateById" parameterType="int">
+    <update id="updateThreadById">
+        update task
+        set download_thread = #{downloadThread}
+        where id = #{id}
+    </update>
+    <select id="getThreadById" parameterType="long" resultType="int">
+        select download_thread
+        from task
+        where id = #{id}
+    </select>
+    <update id="updateById">
         update task
         set status = #{status},
             download_speed = #{downloadSpeed},
             download_progress = #{downloadProgress},
             download_remaining_time = #{downloadRemainingTime},
             current_slice = #{currentSlice},
+            download_thread = #{downloadThread},
+            download_path = #{downloadPath},
+            download_link = #{downloadLink},
             gmt_modified = now()
         where id = #{id}
     </update>
-
 
 </mapper>

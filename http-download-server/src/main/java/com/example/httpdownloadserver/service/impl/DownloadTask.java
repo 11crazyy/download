@@ -92,7 +92,6 @@ public class DownloadTask implements Runnable {
             currentSlice.incrementAndGet();
             task.setCurrentSlice(currentSlice.get());
             taskDAO.updateById(task.getId());
-
         } catch (IOException e) {
             emitter.completeWithError(e);
             throw new RuntimeException(e);

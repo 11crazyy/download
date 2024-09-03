@@ -75,11 +75,17 @@ public interface TaskService {
     boolean deleteDownloads(List<Long> taskIds);
 
     /**
-     * 获取线程数
+     * 更新线程数
      * @return
      */
-    int getThreadCount(int threadCount);
+    int updateThreadCount(Long taskId,int threadNum);
 
+    /**
+     * 获取线程数
+     * @param taskId
+     * @return
+     */
+    int getThreadCount(Long taskId);
     /**
      * 按下载状态筛选任务
      * @param status

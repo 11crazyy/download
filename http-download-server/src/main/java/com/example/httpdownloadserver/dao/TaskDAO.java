@@ -22,6 +22,10 @@ public interface TaskDAO {
     //根据所选列表删除文件
     int deleteByIds(List<Long> ids);
     //根据任务id更新任务
+    int updateThreadById(Long id,int downloadThread);
+    //获得线程数
+    int getThreadById(Long id);
+    //根据任务id更新任务
     int updateById(Long id);
 
 }

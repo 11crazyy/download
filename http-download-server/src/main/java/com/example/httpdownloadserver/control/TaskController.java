@@ -2,6 +2,7 @@ package com.example.httpdownloadserver.control;
 
 import com.example.httpdownloadserver.model.Result;
 import com.example.httpdownloadserver.model.Task;
+import com.example.httpdownloadserver.param.ThreadUpdateParam;
 import com.example.httpdownloadserver.service.TaskService;
 import org.apache.ibatis.annotations.Param;
 import org.apache.logging.log4j.LogManager;
@@ -177,10 +178,12 @@ public class TaskController {
      * 获取线程数
      * @return
      */
-    @GetMapping("/thread/get")
+    @PostMapping("/thread/update")
     @ResponseBody
-    public int getThread(){
-        return 0;
+    public Result<Integer> updateThread(@RequestBody ThreadUpdateParam param) {
+        Result<Integer> result = new Result<>();
+        result.setData(taskService.updateThreadCount(param.getTaskId(), param.getThreadNum()));
+        return result;
     }
 
     /**
