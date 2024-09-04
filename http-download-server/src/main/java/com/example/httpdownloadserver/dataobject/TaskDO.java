@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 
 @Data
 public class TaskDO {
-    private Long id;
+    private Integer id;
     private String status;
     private Double downloadSpeed;
     private int downloadProgress;

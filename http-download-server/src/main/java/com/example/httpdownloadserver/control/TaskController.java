@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.util.List;
@@ -26,7 +27,7 @@ public class TaskController {
      */
     @PostMapping("/task/submit")
     @ResponseBody
-    public Result<Task> submitDownload(@RequestBody String url) {
+    public Result<Task> submitDownload(@RequestParam String url) {
         Result<Task> result = new Result<>();
         Task task = taskService.submitDownload(url);
         if (task != null) {
@@ -47,8 +48,13 @@ public class TaskController {
      */
     @PostMapping("/task/restart")
     @ResponseBody
-    public Result<Boolean> restartDownload(@RequestBody Long id) {
+    public Result<Boolean> restartDownload(@RequestParam Integer id) {
         Result<Boolean> result = new Result<>();
+        if (id == null){
+            result.setSuccess(false);
+            LOGGER.warn("id is null");
+            return result;
+        }
         boolean success = taskService.restartDownload(id);
         if (success) {
             result.setSuccess(true);
@@ -67,8 +73,13 @@ public class TaskController {
      */
     @PostMapping("/task/pause")
     @ResponseBody
-    public Result<Boolean> pauseDownload(@RequestBody Long id) {
+    public Result<Boolean> pauseDownload(@RequestParam Integer id) {
         Result<Boolean> result = new Result<>();
+        if (id == null) {
+            result.setSuccess(false);
+            LOGGER.warn("id is null");
+            return result;
+        }
         boolean success = taskService.pauseDownload(id);
         if (success) {
             result.setSuccess(true);
@@ -87,8 +98,13 @@ public class TaskController {
      */
     @PostMapping("/task/resume")
     @ResponseBody
-    public Result<Boolean> resumeDownload(@RequestBody Long id) {
+    public Result<Boolean> resumeDownload(@RequestParam Integer id) {
         Result<Boolean> result = new Result<>();
+        if (id == null) {
+            result.setSuccess(false);
+            LOGGER.warn("id is null");
+            return result;
+        }
         boolean success = taskService.resumeDownload(id);
         if (success) {
             result.setSuccess(true);
@@ -107,8 +123,14 @@ public class TaskController {
      */
     @PostMapping("/task/cancel")
     @ResponseBody
-    public Result<Boolean> cancelDownload(@RequestBody Long id) {
+    public Result<Boolean> cancelDownload(@RequestParam Integer id) {
         Result<Boolean> result = new Result<>();
+        if (id == null){
+            result.setMessage("id is null");
+            result.setSuccess(false);
+            LOGGER.warn("id is null");
+            return result;
+        }
         boolean success = taskService.cancelDownload(id);
         if (success) {
             result.setSuccess(true);
@@ -126,8 +148,13 @@ public class TaskController {
      */
     @PostMapping("/tasks/restart")
     @ResponseBody
-    public Result<Boolean> startDownloads(@RequestBody List<Long> ids) {
+    public Result<Boolean> startDownloads(@RequestBody List<Integer> ids) {
         Result<Boolean> result = new Result<>();
+        if (ids == null || ids.size() == 0) {
+            result.setSuccess(false);
+            LOGGER.warn("ids is null");
+            return result;
+        }
         boolean success = taskService.restartDownloads(ids);
         if (success) {
             result.setSuccess(true);
@@ -146,8 +173,23 @@ public class TaskController {
      */
     @PostMapping("/tasks/pause")
     @ResponseBody
-    public boolean pauseDownloads(@RequestBody List<Long> ids) {
-        return false;
+    public Result<Boolean> pauseDownloads(@RequestBody List<Integer> ids) {
+        Result<Boolean> result = new Result<>();
+        if (ids == null || ids.size() == 0) {
+            result.setSuccess(false);
+            result.setMessage("ids is null");
+            LOGGER.warn("ids is null");
+            return result;
+        }
+        boolean success = taskService.pauseDownloads(ids);
+        if (success) {
+            result.setSuccess(true);
+            LOGGER.info("pause tasks success");
+        } else {
+            result.setSuccess(false);
+            LOGGER.warn("pause tasks failed");
+        }
+        return result;
     }
 
     /**
@@ -157,8 +199,23 @@ public class TaskController {
      */
     @PostMapping("/tasks/resume")
     @ResponseBody
-    public boolean resumeDownloads(@RequestBody List<Long> ids) {
-        return false;
+    public Result<Boolean> resumeDownloads(@RequestBody List<Integer> ids) {
+        Result<Boolean> result = new Result<>();
+        if (ids == null || ids.size() == 0) {
+            result.setSuccess(false);
+            result.setMessage("ids is null");
+            LOGGER.warn("ids is null");
+            return result;
+        }
+        boolean success = taskService.resumeDownloads(ids);
+        if (success) {
+            result.setSuccess(true);
+            LOGGER.info("resume tasks success");
+        } else {
+            result.setSuccess(false);
+            LOGGER.warn("resume tasks failed");
+        }
+        return result;
     }
 
     /**
@@ -168,9 +225,25 @@ public class TaskController {
      */
     @PostMapping("/tasks/cancel")
     @ResponseBody
-    public boolean cancelDownloads(@RequestBody List<Long> ids) {
-        return false;
+    public Result<Boolean> cancelDownloads(@RequestBody List<Integer> ids) {
+        Result<Boolean> result = new Result<>();
+        if (ids == null || ids.size() == 0) {
+            result.setSuccess(false);
+            result.setMessage("ids is null");
+            LOGGER.warn("ids is null");
+            return result;
+        }
+        boolean success = taskService.cancelDownloads(ids);
+        if (success) {
+            result.setSuccess(true);
+            LOGGER.info("cancel tasks success");
+        } else {
+            result.setSuccess(false);
+            LOGGER.warn("cancel tasks failed");
+        }
+        return result;
     }
+
 
     /**
      * 获取线程数
@@ -180,6 +253,12 @@ public class TaskController {
     @ResponseBody
     public Result<Integer> updateThread(@RequestBody ThreadUpdateParam param) {
         Result<Integer> result = new Result<>();
+        if (param == null) {
+            result.setSuccess(false);
+            result.setMessage("param is null");
+            LOGGER.warn("param is null");
+            return result;
+        }
         result.setData(taskService.updateThreadCount(param.getTaskId(), param.getThreadNum()));
         return result;
     }
@@ -189,7 +268,18 @@ public class TaskController {
      * @param status
      * @return
      */
-    public List<Task> filterTasks(@RequestBody String status) {
-        return null;
+    @PostMapping("/tasks/filter")
+    @ResponseBody
+    public Result<List<Task>> filterTasks(@RequestParam("status") String status) {
+        Result<List<Task>> listResult = new Result<>();
+        if (status == null) {
+            listResult.setSuccess(false);
+            listResult.setMessage("status is null");
+            LOGGER.warn("status is null");
+            return listResult;
+        }
+        listResult.setData(taskService.listByStatus(status));
+        listResult.setSuccess(true);
+        return listResult;
     }
 }

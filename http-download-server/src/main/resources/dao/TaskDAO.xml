@@ -2,8 +2,8 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.httpdownloadserver.dao.TaskDAO">
-    <resultMap id="settingsResultMap" type="com.example.httpdownloadserver.dataobject.TaskDO">
-        <result column="id" jdbcType="BIGINT" property="id"/>
+    <resultMap id="TasksMap" type="com.example.httpdownloadserver.dataobject.TaskDO">
+        <result column="id" jdbcType="INTEGER" property="id"/>
         <result column="status" jdbcType="VARCHAR" property="status"/>
         <result column="download_speed" jdbcType="DOUBLE" property="downloadSpeed"/>
         <result column="download_progress" jdbcType="INTEGER" property="downloadProgress"/>
@@ -15,7 +15,7 @@
         <result column="gmt_created" jdbcType="TIMESTAMP" property="gmtCreated"/>
         <result column="gmt_modified" jdbcType="TIMESTAMP" property="gmtModified"/>
     </resultMap>
-    <insert id="insert">
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         insert into task (status,
                           download_speed,
                           download_progress,
@@ -23,9 +23,7 @@
                           current_slice,
                           download_thread,
                           download_path,
-                          download_link,
-                          gmt_created,
-                          gmt_modified)
+                          download_link)
         values (#{status},
                 #{downloadSpeed},
                 #{downloadProgress},
@@ -33,9 +31,7 @@
                 #{currentSlice},
                 #{downloadThread},
                 #{downloadPath},
-                #{downloadLink},
-                now(),
-                now())
+                #{downloadLink})
     </insert>
     <delete id="deleteById">
         delete
@@ -71,7 +67,7 @@
                gmt_modified
         from task
     </select>
-    <select id="selectByStatus" resultType="com.example.httpdownloadserver.dataobject.TaskDO"
+    <select id="selectByStatus" resultMap="TasksMap"
             parameterType="java.lang.String">
         select id,
                status,
@@ -85,7 +81,7 @@
                gmt_created,
                gmt_modified
         from task
-        where status = #{status}
+        where status = #{status,jdbcType=VARCHAR}
     </select>
     <delete id="deleteByIds">
         delete
@@ -100,7 +96,7 @@
         set download_thread = #{downloadThread}
         where id = #{id}
     </update>
-    <select id="getThreadById" parameterType="long" resultType="int">
+    <select id="getThreadById" parameterType="Integer" resultType="int">
         select download_thread
         from task
         where id = #{id}

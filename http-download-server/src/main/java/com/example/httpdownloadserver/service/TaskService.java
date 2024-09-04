@@ -16,76 +16,76 @@ public interface TaskService {
      * @param taskId
      * @return
      */
-    boolean restartDownload(Long taskId);
+    boolean restartDownload(Integer taskId);
 
     /**
      * 暂停下载任务
      * @param taskId
      * @return
      */
-    boolean pauseDownload(Long taskId);
+    boolean pauseDownload(Integer taskId);
 
     /**
      * 继续下载任务
      * @param taskId
      * @return
      */
-    boolean resumeDownload(Long taskId);
+    boolean resumeDownload(Integer taskId);
 
     /**
      * 取消下载任务
      * @param taskId
      * @return
      */
-    boolean cancelDownload(Long taskId);
+    boolean cancelDownload(Integer taskId);
 
     /**
      * 所选列表重新开始下载
      * @param taskIds
      * @return
      */
-    boolean restartDownloads(List<Long> taskIds);
+    boolean restartDownloads(List<Integer> taskIds);
 
     /**
      * 所选列表取消下载
      * @param taskIds
      * @return
      */
-    boolean cancelDownloads(List<Long> taskIds);
+    boolean cancelDownloads(List<Integer> taskIds);
 
     /**
      * 所选列表暂停下载
      * @param taskIds
      * @return
      */
-    boolean pauseDownloads(List<Long> taskIds);
+    boolean pauseDownloads(List<Integer> taskIds);
 
     /**
      * 所选列表继续下载
      * @param taskIds
      * @return
      */
-    boolean resumeDownloads(List<Long> taskIds);
+    boolean resumeDownloads(List<Integer> taskIds);
 
     /**
      * 所选列表删除下载
      * @param taskIds
      * @return
      */
-    boolean deleteDownloads(List<Long> taskIds);
+    boolean deleteDownloads(List<Integer> taskIds);
 
     /**
      * 更新线程数
      * @return
      */
-    int updateThreadCount(Long taskId,int threadNum);
+    int updateThreadCount(Integer taskId,int threadNum);
 
     /**
      * 获取线程数
      * @param taskId
      * @return
      */
-    int getThreadCount(Long taskId);
+    int getThreadCount(Integer taskId);
     /**
      * 按下载状态筛选任务
      * @param status

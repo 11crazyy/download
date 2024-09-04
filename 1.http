@@ -1,0 +1,43 @@
+POST http://localhost:8080/file/list
+Content-Type: application/json
+
+{
+  "fileType": "all",
+  "orderAsc": true,
+  "orderType": "name"
+}
+
+###
+#POST http://localhost:8080/tasks/filter
+#Content-Type: application/x-www-form-urlencoded
+#
+#status=Pending
+
+###
+#POST http://localhost:8080/task/submit
+#Content-Type: application/x-www-form-urlencoded
+#
+#url = https://download.typora.io/windows/typora-setup-x64.exe
+
+###
+#POST http://localhost:8080/file/page
+#Content-Type: application/json
+#
+#{
+#  "pageSize": 10,
+#  "pagination": 0
+#}
+
+###
+
+
+###
+#POST http://localhost:8080/settings/save
+#Content-Type: application/json
+#
+#{
+#    "settingName": "downloadTask",
+#    "settingValue": "3"
+#}
+
+###

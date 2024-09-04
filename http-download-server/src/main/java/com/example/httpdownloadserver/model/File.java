@@ -7,11 +7,11 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 @Data
 public class File {
-    private Long id;
-    private FileType fileType;
+    private Integer id;
     private String url;
+    private FileType fileType;
     private String fileName;
     private Long size;
-    private Timestamp createTime;
+    private Timestamp gmtCreated;
 
 }

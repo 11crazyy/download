@@ -2,8 +2,8 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.httpdownloadserver.dao.FileDAO">
-    <resultMap id="settingsResultMap" type="com.example.httpdownloadserver.dataobject.FileDO">
-        <result column="id" jdbcType="BIGINT" property="id"/>
+    <resultMap id="FileResultMap" type="com.example.httpdownloadserver.dataobject.FileDO">
+        <result column="id" jdbcType="INTEGER" property="id"/>
         <result column="file_type" jdbcType="VARCHAR" property="fileType"/>
         <result column="file_name" jdbcType="VARCHAR" property="fileName"/>
         <result column="url" jdbcType="VARCHAR" property="url"/>
@@ -12,14 +12,15 @@
         <result column="gmt_modified" jdbcType="TIMESTAMP" property="gmtModified"/>
     </resultMap>
     <insert id="insert">
-        insert into file (file_type, file_name, size, url, gmt_created, gmt_modified)
-        values (#{fileType}, #{fileName}, #{size}, #{url}, now(), now())
+        insert into file (file_type, file_name, size, url,gmt_created)
+        values (#{fileType}, #{fileName}, #{size}, #{url}, now())
     </insert>
-    <select id="order" resultType="com.example.httpdownloadserver.dataobject.FileDO"
+    <select id="order" resultMap="FileResultMap"
             parameterType="com.example.httpdownloadserver.param.FileQueryParam">
-        select id, file_type, file_name, size,url, gmt_created, gmt_modified from file
+        select id, url,file_type as fileType, file_name as fileName, size, gmt_created as gmtCreated
+        from file
         <where>
-            <if test="fileType != null">
+            <if test="fileType != null and !fileType.equals('all')">
                 and file_type = #{fileType}
             </if>
         </where>
@@ -42,12 +43,7 @@
         </if>
     </select>
     <select id="pageQuery" resultType="com.example.httpdownloadserver.dataobject.FileDO">
-        select id, file_type, file_name, size,url, gmt_created, gmt_modified from file
-        <where>
-            <if test="fileType != null">
-                and file_type = #{fileType}
-            </if>
-        </where>
+        select id, file_type as fileType, file_name as fileName, size,url, gmt_created as gmtCreated, gmt_modified as gmtModified from file
         <bind name="currentIndex" value="pagination*pageSize"/>
         limit #{currentIndex}, #{pageSize}
     </select>

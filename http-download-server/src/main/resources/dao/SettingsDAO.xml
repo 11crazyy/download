@@ -14,10 +14,8 @@
         where id = #{id,jdbcType=BIGINT}
     </delete>
     <insert id="insert" parameterType="com.example.httpdownloadserver.dataobject.SettingsDO">
-        insert into settings (id, gmt_created, gmt_modified,
-                              setting_name, setting_value)
-        values (#{id,jdbcType=BIGINT}, #{gmtCreated,jdbcType=TIMESTAMP}, #{gmtModified,jdbcType=TIMESTAMP},
-                #{settingName,jdbcType=VARCHAR}, #{settingValue,jdbcType=VARCHAR})
+        insert into settings (setting_name, setting_value)
+        values (#{settingName,jdbcType=VARCHAR}, #{settingValue,jdbcType=VARCHAR})
         on duplicate key update setting_value = #{settingValue,jdbcType=VARCHAR}
     </insert>
     <update id="updateByPrimaryKey" parameterType="com.example.httpdownloadserver.dataobject.SettingsDO">

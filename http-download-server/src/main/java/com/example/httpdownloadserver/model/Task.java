@@ -4,7 +4,7 @@ import lombok.Data;
 
 @Data
 public class Task {
-    private Long id;
+    private Integer id;
     private TaskStatus status;
     private Double downloadSpeed;
     private int downloadProgress;

@@ -1,7 +1,9 @@
 package com.example.httpdownloadserver.service.impl;
 
+import com.example.httpdownloadserver.common.PowerConverter;
 import com.example.httpdownloadserver.dao.FileDAO;
 import com.example.httpdownloadserver.dataobject.FileDO;
+import com.example.httpdownloadserver.dataobject.SettingsDO;
 import com.example.httpdownloadserver.model.File;
 import com.example.httpdownloadserver.model.Paging;
 import com.example.httpdownloadserver.param.FileQueryParam;
@@ -27,7 +29,7 @@ public class FileServiceImpl implements FileService {
         }
         List<FileDO> fileDOS = fileDAO.order(param);
         for (FileDO fileDO : fileDOS) {
-            fileList.add(fileDO.toModel());
+            fileList.add(PowerConverter.convert(fileDO, File.class));
         }
         return fileList;
     }
@@ -62,7 +64,7 @@ public class FileServiceImpl implements FileService {
         List<File> fileList = new ArrayList<>();
         if (!CollectionUtils.isEmpty(fileDOS)) {
             for (FileDO fileDO : fileDOS) {
-                fileList.add(fileDO.toModel());
+                fileList.add(PowerConverter.convert(fileDO, File.class));
             }
         }
         result.setData(fileList);
