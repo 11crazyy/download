@@ -37,7 +37,14 @@ public class DownloadServiceImpl implements DownloadService {
         //打开连接
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("HEAD");//发送HEAD请求
-        connection.connect();//连接到服务器
+        connection.setConnectTimeout(10000);  // 连接超时设置为10秒（防止超时抛异常）
+        connection.setReadTimeout(50000);     // 读取超时设置为15秒
+        try {
+            connection.connect();  // 连接到服务器 可能抛出 IOException
+        } catch (IOException e) {
+            // 正确处理 IOException
+            throw new RuntimeException("Error occurred during connecting to the URL: " + task.getDownloadLink(), e);
+        }
         //获取文件大小，单位字节
         long fileSize = connection.getContentLengthLong();
         //获得切片大小

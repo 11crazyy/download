@@ -41,8 +41,16 @@ public class TaskServiceImpl implements TaskService {
         taskDO.setDownloadSpeed((double) 0);
         taskDO.setDownloadRemainingTime(0L);
         taskDO.setDownloadProgress(0);
-        taskDO.setDownloadPath(settingsDAO.selectByName("downloadPath").getSettingValue());
-        taskDO.setDownloadThread(Integer.parseInt(settingsDAO.selectByName("threadNum").getSettingValue()));
+        String downloadPath = settingsDAO.selectByName("downloadPath").getSettingValue();
+        if (downloadPath == null || downloadPath.isEmpty()) {
+            downloadPath = System.getProperty("user.dir");
+        }
+        taskDO.setDownloadPath(downloadPath);
+        String threadNum = settingsDAO.selectByName("threadNum").getSettingValue();
+        if (threadNum == null || threadNum.isEmpty()) {
+            threadNum = "4";
+        }
+        taskDO.setDownloadThread(Integer.parseInt(threadNum));
         taskDO.setStatus(String.valueOf(TaskStatus.Pending));
         taskDAO.insert(taskDO);
         //将任务信息存到下载队列中
