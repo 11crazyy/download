@@ -1,7 +1,7 @@
 package com.example.httpdownloadserver.model;
 
 public enum FileType {
-    All,
+    all,
     Video,
     Photo,
     Archive,

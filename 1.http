@@ -1,35 +1,75 @@
-POST http://localhost:8080/file/list
+POST http://localhost:8080/task/pause
+Content-Type: application/x-www-form-urlencoded
+
+id=1
+
+###
+POST http://localhost:8080/task/restart
+Content-Type: application/x-www-form-urlencoded
+
+id=1
+
+###
+
+POST http://localhost:8080/task/cancel
+Content-Type: application/x-www-form-urlencoded
+
+id=1
+
+###
+POST http://localhost:8080/task/resume
+Content-Type: application/x-www-form-urlencoded
+
+id=1
+
+###
+POST http://localhost:8080/tasks/restart
+Content-Type: application/json
+
+[1,2,3]
+
+###
+POST http://localhost:8080/tasks/pause
+Content-Type: application/json
+
+[1,2,3]
+
+###
+
+
+###
+POST http://localhost:8080/tasks/resume
+Content-Type: application/json
+
+[1,2,3]
+
+###
+POST http://localhost:8080/tasks/cancel
+Content-Type: application/json
+
+[1,2,3]
+
+###
+POST http://localhost:8080/thread/update
 Content-Type: application/json
 
 {
-  "fileType": "all",
-  "orderAsc": true,
-  "orderType": "name"
+  "taskId": 1,
+  "threadNum": 3
 }
 
-###
-#POST http://localhost:8080/tasks/filter
-#Content-Type: application/x-www-form-urlencoded
-#
-#status=Pending
 
 ###
-#POST http://localhost:8080/task/submit
-#Content-Type: application/x-www-form-urlencoded
-#
-#url = https://download.typora.io/windows/typora-setup-x64.exe
+POST http://localhost:8080/tasks/filter
+Content-Type: application/x-www-form-urlencoded
+
+status=Pending
 
 ###
-#POST http://localhost:8080/file/page
-#Content-Type: application/json
-#
-#{
-#  "pageSize": 10,
-#  "pagination": 0
-#}
+POST http://localhost:8080/task/submit
+Content-Type: application/x-www-form-urlencoded
 
-###
-
+url = https://download.typora.io/windows/typora-setup-x64.exe
 
 ###
 #POST http://localhost:8080/settings/save
@@ -40,4 +80,4 @@ Content-Type: application/json
 #    "settingValue": "3"
 #}
 
-###
+
