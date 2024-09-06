@@ -2,16 +2,21 @@ package com.example.httpdownloadserver.service.impl;
 
 import com.example.httpdownloadserver.dao.SettingsDAO;
 import com.example.httpdownloadserver.dao.TaskDAO;
-import com.example.httpdownloadserver.model.File;
 import com.example.httpdownloadserver.model.Task;
 import com.example.httpdownloadserver.service.DownloadService;
 import com.google.common.util.concurrent.RateLimiter;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import org.yaml.snakeyaml.emitter.Emitter;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Map;
@@ -27,26 +32,32 @@ public class DownloadServiceImpl implements DownloadService {
     @Autowired
     private TaskDAO taskDAO;
     private static final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
+    //创建okhttp实例
+    private static final OkHttpClient client = new OkHttpClient();
 
     @Override
     public void download(Task task, int threadNum) throws IOException {
         SseEmitter emitter = new SseEmitter();
         emitters.put(task.getId().toString(), emitter);
-        //创建url对象
-        URL url = new URL(task.getDownloadLink());
-        //打开连接
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setRequestMethod("HEAD");//发送HEAD请求
-        connection.setConnectTimeout(10000);  // 连接超时设置为10秒（防止超时抛异常）
-        connection.setReadTimeout(50000);     // 读取超时设置为15秒
-        try {
-            connection.connect();  // 连接到服务器 可能抛出 IOException
-        } catch (IOException e) {
-            // 正确处理 IOException
-            throw new RuntimeException("Error occurred during connecting to the URL: " + task.getDownloadLink(), e);
+        //创建一个Request对象
+        Request request = new Request.Builder().url(task.getDownloadLink()).build();
+        //使用okhttpClient发送请求
+        Response response = client.newCall(request).execute();
+        try (response) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Failed to download file:" + response);
+            }
+            //获取响应体
+            ResponseBody body = response.body();
+            if (body != null) {
+                saveFile(body, task.getDownloadLink());
+            } else {
+                throw new IOException("Empty response body");
+            }
         }
-        //获取文件大小，单位字节
-        long fileSize = connection.getContentLengthLong();
+        //获取文件大小 单位字节
+        String contentLen = response.header("Content-Length");
+        Long fileSize = Long.parseLong(contentLen);
         //获得切片大小
         int sliceSize = sliceSize(fileSize);
         //切片个数
@@ -70,7 +81,6 @@ public class DownloadServiceImpl implements DownloadService {
         } catch (InterruptedException e) {
             executor.shutdownNow();//尝试停止所有正在执行的任务 返回尚未执行的任务列表 会终端所有正在等待的任务
         }
-        connection.disconnect();
     }
 
     @Override
@@ -90,4 +100,22 @@ public class DownloadServiceImpl implements DownloadService {
             return 50 * 1024 * 1024;//50MB;
         }
     }
+
+    private void saveFile(ResponseBody body, String destinationPath) throws IOException {
+        File file = new File(destinationPath);
+        // 获取输入流
+        try (InputStream inputStream = body.byteStream();
+             FileOutputStream outputStream = new FileOutputStream(file)) {
+            byte[] buffer = new byte[4096]; // 缓冲区
+            int bytesRead;
+
+            // 从输入流中读取数据，并写入到文件输出流
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, bytesRead);
+            }
+            outputStream.flush(); // 确保所有数据已写入
+            System.out.println("File downloaded successfully to " + destinationPath);
+        }
+    }
+
 }

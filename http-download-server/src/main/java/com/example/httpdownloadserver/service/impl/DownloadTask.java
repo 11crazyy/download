@@ -4,6 +4,10 @@ import com.example.httpdownloadserver.dao.TaskDAO;
 import com.example.httpdownloadserver.model.DownloadProgress;
 import com.example.httpdownloadserver.model.Task;
 import com.google.common.util.concurrent.RateLimiter;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -29,8 +33,9 @@ public class DownloadTask implements Runnable {
     private final TaskDAO taskDAO;
     private final RateLimiter rateLimiter;
     private final SseEmitter emitter;
+    private static final OkHttpClient client = new OkHttpClient();
 
-    public DownloadTask(Task task, String destination, Long startIndex, Long endIndex, AtomicLong bytesDownloaded, Long totalFileSize, AtomicInteger currentSlice, TaskDAO taskDAO, RateLimiter rateLimiter,SseEmitter emitter) {
+    public DownloadTask(Task task, String destination, Long startIndex, Long endIndex, AtomicLong bytesDownloaded, Long totalFileSize, AtomicInteger currentSlice, TaskDAO taskDAO, RateLimiter rateLimiter, SseEmitter emitter) {
         this.task = task;
         this.fileUrl = task.getDownloadLink();
         this.destination = destination;
@@ -47,18 +52,26 @@ public class DownloadTask implements Runnable {
     //任务逻辑：下载任务 计算剩余时间 下载进度 以及下载速度
     @Override
     public void run() {
-        try {
-            HttpURLConnection connection = (HttpURLConnection) new URL(fileUrl).openConnection();
-            connection.setRequestProperty("Range", "bytes=" + startIndex + "-" + endIndex);//设置下载范围
-            connection.connect();
-            InputStream inputStream = connection.getInputStream();//从连接中读取下载的数据
+        //构建Okhttp请求，并设置Range请求头
+        Request request = new Request.Builder().url(fileUrl).addHeader("Range", "bytes=" + startIndex + "-" + endIndex).build();
+        //发送请求并获取响应
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Failed to download file:" + response);
+            }
+            //获取响应体的输入流
+            ResponseBody body = response.body();
+            if (body == null) {
+                throw new IOException("Empty response body");
+            }
+            InputStream inputStream = body.byteStream();
             RandomAccessFile raf = new RandomAccessFile(destination, "rw");//随机访问文件 将下载的数据写入到目标文件的特定位置
-            raf.seek(startIndex);//指定从哪个位置开始写入数据
+            raf.seek(startIndex);
             //读取并写入数据
             byte[] buffer = new byte[1024];
             int bytesRead;
             long startTime = System.currentTimeMillis();//开始时间
-            while ((bytesRead = inputStream.read(buffer, 0, buffer.length)) != -1) {
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
                 //检查线程是否被中断
                 if (Thread.currentThread().isInterrupted()) {
                     break;
@@ -87,7 +100,6 @@ public class DownloadTask implements Runnable {
             raf.close();
             inputStream.close();
             logger.info("索引为 " + currentSlice + " 的切片下载完成,该切片字节范围为：" + startIndex + " - " + endIndex);
-            connection.disconnect();
             //分片下载完成 更新currentSlice和数据库
             currentSlice.incrementAndGet();
             task.setCurrentSlice(currentSlice.get());
