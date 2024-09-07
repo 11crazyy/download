@@ -10,6 +10,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -51,8 +52,7 @@ public class DownloadServiceImpl implements DownloadService {
                 throw new IOException("Failed to download file:" + response);
             }
             String directoryPath = settingsDAO.selectByName("downloadPath").getSettingValue();
-            String fileName = task.getDownloadLink().substring(task.getDownloadLink().lastIndexOf("/") + 1);
-            String fullPath = directoryPath + File.separator + fileName;
+            String fullPath = getString(task, directoryPath);
             //获得正确的路径
             task.setDownloadPath(saveFilePath(fullPath));
         }
@@ -73,7 +73,7 @@ public class DownloadServiceImpl implements DownloadService {
         for (int i = sliceIndex; i < sliceNum; i++) {
             long startIndex = (long) i * sliceSize;
             long endIndex = (i == sliceNum - 1) ? fileSize - 1 : startIndex + sliceSize - 1;
-            executor.execute(new DownloadTask(task, task.getDownloadPath(), startIndex, endIndex, downloaded, fileSize, currentSlice, taskDAO, rateLimiter, emitter,sliceNum));//线程逻辑：负责任务调度
+            executor.execute(new DownloadTask(task, task.getDownloadPath(), startIndex, endIndex, downloaded, fileSize, currentSlice, taskDAO, rateLimiter, emitter, sliceNum));//线程逻辑：负责任务调度
         }
         executor.shutdown();
         try {
@@ -84,6 +84,45 @@ public class DownloadServiceImpl implements DownloadService {
             executor.shutdownNow();//尝试停止所有正在执行的任务 返回尚未执行的任务列表 会终端所有正在等待的任务
         }
     }
+
+    @NotNull
+    private static String getString(Task task, String directoryPath) {
+        // 获取原始文件名
+        String fileName = task.getDownloadLink().substring(task.getDownloadLink().lastIndexOf("/") + 1);
+
+        // 获取文件扩展名和文件的基础名称
+        String baseName;
+        String extension = "";
+
+        int dotIndex = fileName.lastIndexOf(".");
+        if (dotIndex != -1) {
+            baseName = fileName.substring(0, dotIndex);
+            extension = fileName.substring(dotIndex); // 获取"."后的扩展名
+        } else {
+            baseName = fileName; // 没有扩展名的情况
+        }
+
+        String fullPath = directoryPath + File.separator + fileName;
+        File file = new File(fullPath);
+        int i = 1;
+
+        // 循环判断文件是否已经存在
+        while (file.exists()) {
+            // 检查 baseName 中是否已经包含类似 (n) 的后缀，并移除这个后缀
+            if (baseName.matches(".*\\(\\d+\\)$")) {
+                baseName = baseName.substring(0, baseName.lastIndexOf("("));
+            }
+
+            // 生成新的文件名，递增数字
+            fileName = baseName + "(" + i + ")" + extension;
+            fullPath = directoryPath + File.separator + fileName;
+            file = new File(fullPath);
+            i++;
+        }
+
+        return fullPath;
+    }
+
 
     @Override
     public SseEmitter getEmitter(String taskId) {
