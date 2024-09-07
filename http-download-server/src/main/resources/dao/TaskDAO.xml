@@ -101,7 +101,7 @@
         from task
         where id = #{id}
     </select>
-    <update id="updateById">
+    <update id="updateById" parameterType="int">
         update task
         set status = #{status},
             download_speed = #{downloadSpeed},

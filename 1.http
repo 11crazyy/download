@@ -1,3 +1,13 @@
+POST http://localhost:8080/settings/save
+Content-Type: application/json
+
+{
+  "settingName": "downloadSpeed",
+  "settingValue": "100"
+}
+
+
+###
 POST http://localhost:8080/task/pause
 Content-Type: application/x-www-form-urlencoded
 
@@ -69,15 +79,8 @@ status=Pending
 POST http://localhost:8080/task/submit
 Content-Type: application/x-www-form-urlencoded
 
-url = https://download.typora.io/windows/typora-setup-x64.exe
-
+url = https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe
 ###
-#POST http://localhost:8080/settings/save
-#Content-Type: application/json
-#
-#{
-#    "settingName": "downloadTask",
-#    "settingValue": "3"
-#}
+GET https://download.oracle.com/java/17/latest/jdk-17_windows-x64_bin.exe
 
 

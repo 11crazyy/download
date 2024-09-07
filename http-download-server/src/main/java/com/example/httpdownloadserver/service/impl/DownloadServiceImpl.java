@@ -8,17 +8,14 @@ import com.google.common.util.concurrent.RateLimiter;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
-import okhttp3.ResponseBody;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -26,14 +23,20 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class DownloadServiceImpl implements DownloadService {
+    private static final Logger LOGGER = LogManager.getLogger(DownloadServiceImpl.class);
 
     @Autowired
     private SettingsDAO settingsDAO;
     @Autowired
     private TaskDAO taskDAO;
+
     private static final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
     //创建okhttp实例
-    private static final OkHttpClient client = new OkHttpClient();
+    private static final OkHttpClient client = new OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .writeTimeout(10, TimeUnit.SECONDS)
+            .build();
 
     @Override
     public void download(Task task, int threadNum) throws IOException {
@@ -47,13 +50,11 @@ public class DownloadServiceImpl implements DownloadService {
             if (!response.isSuccessful()) {
                 throw new IOException("Failed to download file:" + response);
             }
-            //获取响应体
-            ResponseBody body = response.body();
-            if (body != null) {
-                saveFile(body, task.getDownloadLink());
-            } else {
-                throw new IOException("Empty response body");
-            }
+            String directoryPath = settingsDAO.selectByName("downloadPath").getSettingValue();
+            String fileName = task.getDownloadLink().substring(task.getDownloadLink().lastIndexOf("/") + 1);
+            String fullPath = directoryPath + File.separator + fileName;
+            //获得正确的路径
+            task.setDownloadPath(saveFilePath(fullPath));
         }
         //获取文件大小 单位字节
         String contentLen = response.header("Content-Length");
@@ -63,7 +64,8 @@ public class DownloadServiceImpl implements DownloadService {
         //切片个数
         int sliceNum = (int) Math.ceil((double) fileSize / sliceSize);
         //rateLimiter实现限速
-        RateLimiter rateLimiter = RateLimiter.create(Double.parseDouble(settingsDAO.selectByName("downloadSpeed").getSettingValue()));//每秒不超过指定的下载速度对应的字节数
+        String speed = settingsDAO.selectByName("downloadSpeed").getSettingValue();//MB/s
+        RateLimiter rateLimiter = RateLimiter.create(Double.parseDouble(speed) * 1024 * 1024);//每秒不超过指定的下载速度对应的字节数
         AtomicLong downloaded = new AtomicLong(0);
         AtomicInteger currentSlice = new AtomicInteger(0);
         ExecutorService executor = Executors.newFixedThreadPool(threadNum);
@@ -71,7 +73,7 @@ public class DownloadServiceImpl implements DownloadService {
         for (int i = sliceIndex; i < sliceNum; i++) {
             long startIndex = (long) i * sliceSize;
             long endIndex = (i == sliceNum - 1) ? fileSize - 1 : startIndex + sliceSize - 1;
-            executor.execute(new DownloadTask(task, settingsDAO.selectByName("downloadPath").getSettingValue(), startIndex, endIndex, downloaded, fileSize, currentSlice, taskDAO, rateLimiter, emitter));//线程逻辑：负责任务调度
+            executor.execute(new DownloadTask(task, task.getDownloadPath(), startIndex, endIndex, downloaded, fileSize, currentSlice, taskDAO, rateLimiter, emitter,sliceNum));//线程逻辑：负责任务调度
         }
         executor.shutdown();
         try {
@@ -101,21 +103,21 @@ public class DownloadServiceImpl implements DownloadService {
         }
     }
 
-    private void saveFile(ResponseBody body, String destinationPath) throws IOException {
+    private String saveFilePath(String destinationPath) throws IOException {
         File file = new File(destinationPath);
-        // 获取输入流
-        try (InputStream inputStream = body.byteStream();
-             FileOutputStream outputStream = new FileOutputStream(file)) {
-            byte[] buffer = new byte[4096]; // 缓冲区
-            int bytesRead;
-
-            // 从输入流中读取数据，并写入到文件输出流
-            while ((bytesRead = inputStream.read(buffer)) != -1) {
-                outputStream.write(buffer, 0, bytesRead);
+        File parentDir = file.getParentFile();
+        if (parentDir != null && !parentDir.exists()) {
+            if (!parentDir.mkdir()) {
+                throw new IOException("Failed to create directory: " + parentDir.getAbsolutePath());
             }
-            outputStream.flush(); // 确保所有数据已写入
-            System.out.println("File downloaded successfully to " + destinationPath);
         }
+        // 创建文件
+        if (file.createNewFile()) {
+            LOGGER.info("File created successfully: " + file.getAbsolutePath());
+        } else {
+            LOGGER.info("File already exists: " + file.getAbsolutePath());
+        }
+        return file.getAbsolutePath();
     }
 
 }

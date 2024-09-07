@@ -1,5 +1,6 @@
 package com.example.httpdownloadserver.service.impl;
 
+import com.example.httpdownloadserver.control.TaskController;
 import com.example.httpdownloadserver.dao.TaskDAO;
 import com.example.httpdownloadserver.model.DownloadProgress;
 import com.example.httpdownloadserver.model.Task;
@@ -9,7 +10,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.Logger;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
@@ -17,11 +18,12 @@ import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class DownloadTask implements Runnable {
-    Logger logger = (Logger) LogManager.getLogger(DownloadTask.class);
+    private static final Logger LOGGER = LogManager.getLogger(DownloadTask.class);
     private final String fileUrl;
     private final String destination;
     private final Long startIndex;//开始下载位置
@@ -33,9 +35,12 @@ public class DownloadTask implements Runnable {
     private final TaskDAO taskDAO;
     private final RateLimiter rateLimiter;
     private final SseEmitter emitter;
+    private final int sliceNum;
     private static final OkHttpClient client = new OkHttpClient();
+    private final Object lock = new Object();//锁 用于同步访问emitter和标志位
+    private AtomicBoolean isEmitterCompleted = new AtomicBoolean(false);//标志位 用于判断emitter是否已经完成
 
-    public DownloadTask(Task task, String destination, Long startIndex, Long endIndex, AtomicLong bytesDownloaded, Long totalFileSize, AtomicInteger currentSlice, TaskDAO taskDAO, RateLimiter rateLimiter, SseEmitter emitter) {
+    public DownloadTask(Task task, String destination, Long startIndex, Long endIndex, AtomicLong bytesDownloaded, Long totalFileSize, AtomicInteger currentSlice, TaskDAO taskDAO, RateLimiter rateLimiter, SseEmitter emitter,int sliceNum) {
         this.task = task;
         this.fileUrl = task.getDownloadLink();
         this.destination = destination;
@@ -47,6 +52,7 @@ public class DownloadTask implements Runnable {
         this.taskDAO = taskDAO;
         this.rateLimiter = rateLimiter;
         this.emitter = emitter;
+        this.sliceNum = sliceNum;
     }
 
     //任务逻辑：下载任务 计算剩余时间 下载进度 以及下载速度
@@ -92,20 +98,43 @@ public class DownloadTask implements Runnable {
                 long remainingBytes = totalFileSize - bytesDownloaded.get();
                 double remainingTime = remainingBytes / downloadSpeed;//剩余时间 单位s
                 task.setDownloadRemainingTime((long) remainingTime);
-                logger.info(String.format("下载进度：%.2f%%, 下载速度：%.2fKB/s, 剩余时间：%.2f秒\n", progress, downloadSpeed / 1024, remainingTime));
-                emitter.send(new DownloadProgress((int) progress, downloadSpeed / 1024, (long) remainingTime, task.getDownloadPath()));
+                LOGGER.info(String.format("下载进度：%d%%, 下载速度：%.2fKB/s, 剩余时间：%.2f秒\n", (int) progress, downloadSpeed / 1024, remainingTime));
+                //同步对emitter的访问，确保多线程安全
+                synchronized (lock) {
+                    if (!isEmitterCompleted.get()) {
+                        emitter.send(new DownloadProgress((int) progress, downloadSpeed / 1024, (long) remainingTime, task.getDownloadPath()));
+                    }
+                }
             }
-            emitter.complete();
+//            synchronized (lock){
+//                if (!isEmitterCompleted.get()){
+//                    emitter.complete();
+//                }
+//            }
+            synchronized (lock){
+                if (!isEmitterCompleted.get()){
+                    if (currentSlice.get() == sliceNum) {//整个文件全部下载完成
+                        emitter.complete();
+                        isEmitterCompleted.set(true);
+                    }
+                }
+            }
             //关闭流
             raf.close();
             inputStream.close();
-            logger.info("索引为 " + currentSlice + " 的切片下载完成,该切片字节范围为：" + startIndex + " - " + endIndex);
+            LOGGER.info("索引为 " + currentSlice + " 的切片下载完成,该切片字节范围为：" + startIndex + " - " + endIndex);
             //分片下载完成 更新currentSlice和数据库
             currentSlice.incrementAndGet();
             task.setCurrentSlice(currentSlice.get());
             taskDAO.updateById(task.getId());
         } catch (IOException e) {
-            emitter.completeWithError(e);
+            synchronized (lock) {
+                if (!isEmitterCompleted.get()) {
+                    emitter.completeWithError(e);
+                    isEmitterCompleted.set(true);
+                }
+            }
+            LOGGER.error("下载失败: " + e.getMessage(), e);
             throw new RuntimeException(e);
         }
     }
