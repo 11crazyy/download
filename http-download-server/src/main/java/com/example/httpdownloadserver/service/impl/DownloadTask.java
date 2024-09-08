@@ -15,6 +15,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -38,9 +39,9 @@ public class DownloadTask implements Runnable {
     private final int sliceNum;
     private static final OkHttpClient client = new OkHttpClient();
     private final Object lock = new Object();//锁 用于同步访问emitter和标志位
-    private AtomicBoolean isEmitterCompleted = new AtomicBoolean(false);//标志位 用于判断emitter是否已经完成
+    private final AtomicBoolean isEmitterCompleted = new AtomicBoolean(false);//标志位 用于判断emitter是否已经完成
 
-    public DownloadTask(Task task, String destination, Long startIndex, Long endIndex, AtomicLong bytesDownloaded, Long totalFileSize, AtomicInteger currentSlice, TaskDAO taskDAO, RateLimiter rateLimiter, SseEmitter emitter,int sliceNum) {
+    public DownloadTask(Task task, String destination, Long startIndex, Long endIndex, AtomicLong bytesDownloaded, Long totalFileSize, AtomicInteger currentSlice, TaskDAO taskDAO, RateLimiter rateLimiter, SseEmitter emitter, int sliceNum) {
         this.task = task;
         this.fileUrl = task.getDownloadLink();
         this.destination = destination;
@@ -98,21 +99,16 @@ public class DownloadTask implements Runnable {
                 long remainingBytes = totalFileSize - bytesDownloaded.get();
                 double remainingTime = remainingBytes / downloadSpeed;//剩余时间 单位s
                 task.setDownloadRemainingTime((long) remainingTime);
-                LOGGER.info(String.format("下载进度：%d%%, 下载速度：%.2fKB/s, 剩余时间：%.2f秒\n", (int) progress, downloadSpeed / 1024, remainingTime));
+                LOGGER.info(String.format("下载进度：%d%%, 下载速度：%.2fKB/s, 剩余时间：%.2f秒,已经下载的字节数：%d字节\n", (int) progress, downloadSpeed / 1024, remainingTime,bytesDownloaded.get()));
                 //同步对emitter的访问，确保多线程安全
                 synchronized (lock) {
                     if (!isEmitterCompleted.get()) {
-                        emitter.send(new DownloadProgress((int) progress, downloadSpeed / 1024, (long) remainingTime, task.getDownloadPath()));
+                        emitter.send(new DownloadProgress((int) progress, downloadSpeed / 1024, (long) remainingTime, bytesDownloaded.get()));
                     }
                 }
             }
-//            synchronized (lock){
-//                if (!isEmitterCompleted.get()){
-//                    emitter.complete();
-//                }
-//            }
-            synchronized (lock){
-                if (!isEmitterCompleted.get()){
+            synchronized (lock) {
+                if (!isEmitterCompleted.get()) {
                     if (currentSlice.get() == sliceNum) {//整个文件全部下载完成
                         emitter.complete();
                         isEmitterCompleted.set(true);
@@ -130,12 +126,19 @@ public class DownloadTask implements Runnable {
         } catch (IOException e) {
             synchronized (lock) {
                 if (!isEmitterCompleted.get()) {
-                    emitter.completeWithError(e);
-                    isEmitterCompleted.set(true);
+                    if (e instanceof InterruptedIOException) {//如果是cancel 则不抛出异常
+                        LOGGER.info("下载任务被取消:" + e.getMessage());
+                        Thread.currentThread().interrupt();
+                    } else {
+                        LOGGER.error("下载失败: " + e.getMessage(), e);
+                        emitter.completeWithError(e);
+                        isEmitterCompleted.set(true);
+                    }
                 }
             }
-            LOGGER.error("下载失败: " + e.getMessage(), e);
-            throw new RuntimeException(e);
+            if (!(e instanceof InterruptedIOException)) {
+                throw new RuntimeException("下载失败", e);
+            }
         }
     }
 }

@@ -50,11 +50,7 @@ public class TaskController {
     @ResponseBody
     public Result<Boolean> restartDownload(@RequestParam Integer id) {
         Result<Boolean> result = new Result<>();
-        if (id == null){
-            result.setSuccess(false);
-            LOGGER.warn("id is null");
-            return result;
-        }
+        if (isIdNull(result, id)) return result;
         boolean success = taskService.restartDownload(id);
         if (success) {
             result.setSuccess(true);
@@ -75,11 +71,7 @@ public class TaskController {
     @ResponseBody
     public Result<Boolean> pauseDownload(@RequestParam Integer id) {
         Result<Boolean> result = new Result<>();
-        if (id == null) {
-            result.setSuccess(false);
-            LOGGER.warn("id is null");
-            return result;
-        }
+        if (isIdNull(result, id)) return result;
         boolean success = taskService.pauseDownload(id);
         if (success) {
             result.setSuccess(true);
@@ -100,11 +92,7 @@ public class TaskController {
     @ResponseBody
     public Result<Boolean> resumeDownload(@RequestParam Integer id) {
         Result<Boolean> result = new Result<>();
-        if (id == null) {
-            result.setSuccess(false);
-            LOGGER.warn("id is null");
-            return result;
-        }
+        if (isIdNull(result, id)) return result;
         boolean success = taskService.resumeDownload(id);
         if (success) {
             result.setSuccess(true);
@@ -125,15 +113,11 @@ public class TaskController {
     @ResponseBody
     public Result<Boolean> cancelDownload(@RequestParam Integer id) {
         Result<Boolean> result = new Result<>();
-        if (id == null){
-            result.setMessage("id is null");
-            result.setSuccess(false);
-            LOGGER.warn("id is null");
-            return result;
-        }
+        if (isIdNull(result, id)) return result;
         boolean success = taskService.cancelDownload(id);
         if (success) {
             result.setSuccess(true);
+            result.setMessage("cancel task success");
             LOGGER.info("cancel task success");
         } else {
             result.setSuccess(false);
@@ -150,11 +134,7 @@ public class TaskController {
     @ResponseBody
     public Result<Boolean> startDownloads(@RequestBody List<Integer> ids) {
         Result<Boolean> result = new Result<>();
-        if (ids == null || ids.size() == 0) {
-            result.setSuccess(false);
-            LOGGER.warn("ids is null");
-            return result;
-        }
+        if (isIdsNull(result, ids)) return result;
         boolean success = taskService.restartDownloads(ids);
         if (success) {
             result.setSuccess(true);
@@ -175,12 +155,7 @@ public class TaskController {
     @ResponseBody
     public Result<Boolean> pauseDownloads(@RequestBody List<Integer> ids) {
         Result<Boolean> result = new Result<>();
-        if (ids == null || ids.size() == 0) {
-            result.setSuccess(false);
-            result.setMessage("ids is null");
-            LOGGER.warn("ids is null");
-            return result;
-        }
+        if (isIdsNull(result, ids)) return result;
         boolean success = taskService.pauseDownloads(ids);
         if (success) {
             result.setSuccess(true);
@@ -201,12 +176,7 @@ public class TaskController {
     @ResponseBody
     public Result<Boolean> resumeDownloads(@RequestBody List<Integer> ids) {
         Result<Boolean> result = new Result<>();
-        if (ids == null || ids.size() == 0) {
-            result.setSuccess(false);
-            result.setMessage("ids is null");
-            LOGGER.warn("ids is null");
-            return result;
-        }
+        if (isIdsNull(result, ids)) return result;
         boolean success = taskService.resumeDownloads(ids);
         if (success) {
             result.setSuccess(true);
@@ -227,18 +197,15 @@ public class TaskController {
     @ResponseBody
     public Result<Boolean> cancelDownloads(@RequestBody List<Integer> ids) {
         Result<Boolean> result = new Result<>();
-        if (ids == null || ids.size() == 0) {
-            result.setSuccess(false);
-            result.setMessage("ids is null");
-            LOGGER.warn("ids is null");
-            return result;
-        }
+        if (isIdsNull(result, ids)) return result;
         boolean success = taskService.cancelDownloads(ids);
         if (success) {
             result.setSuccess(true);
+            result.setMessage("cancel tasks success");
             LOGGER.info("cancel tasks success");
         } else {
             result.setSuccess(false);
+            result.setMessage("cancel tasks failed");
             LOGGER.warn("cancel tasks failed");
         }
         return result;
@@ -259,7 +226,15 @@ public class TaskController {
             LOGGER.warn("param is null");
             return result;
         }
-        result.setData(taskService.updateThreadCount(param.getTaskId(), param.getThreadNum()));
+        int updateRes = taskService.updateThreadCount(param.getTaskId(), param.getThreadNum());
+        if (updateRes == 0){
+            result.setSuccess(false);
+            result.setMessage("update thread count failed");
+            LOGGER.warn("update thread count failed");
+            return result;
+        }
+        result.setMessage("update thread count success");
+        result.setSuccess(true);
         return result;
     }
 
@@ -281,5 +256,25 @@ public class TaskController {
         listResult.setData(taskService.listByStatus(status));
         listResult.setSuccess(true);
         return listResult;
+    }
+
+    public boolean isIdNull(Result<?> result, Integer id) {
+        if (id == null) {
+            result.setSuccess(false);
+            result.setMessage("id is null");
+            LOGGER.warn("id is null");
+            return true;
+        }
+        return false;
+    }
+
+    public boolean isIdsNull(Result<?> result, List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) {
+            result.setSuccess(false);
+            result.setMessage("ids is null");
+            LOGGER.warn("ids is null");
+            return true;
+        }
+        return false;
     }
 }

@@ -7,11 +7,12 @@ public class DownloadProgress {
     private int progress;//下载进度
     private double speed;//下载速度
     private long remainingTime;//剩余时间
-    private String fileName;//文件名
-    public DownloadProgress(int progress, double speed, long remainingTime, String fileName) {
+    private long downloadedBytes;
+
+    public DownloadProgress(int progress, double speed, long remainingTime, long downloadedBytes) {
         this.progress = progress;
         this.speed = speed;
         this.remainingTime = remainingTime;
-        this.fileName = fileName;
+        this.downloadedBytes = downloadedBytes;
     }
 }

@@ -54,7 +54,7 @@ public class TaskServiceImpl implements TaskService {
         taskDO.setStatus(String.valueOf(TaskStatus.Pending));
         taskDAO.insert(taskDO);
         //将任务信息存到下载队列中
-        Task task = PowerConverter.convert(taskDO,Task.class);
+        Task task = PowerConverter.convert(taskDO, Task.class);
         task.setStatus(TaskStatus.valueOf(taskDO.getStatus()));
         taskDeque.offer(task);
         //启动任务处理，从队列中取出任务并启动下载过程
@@ -68,7 +68,7 @@ public class TaskServiceImpl implements TaskService {
             if (task != null) {
                 Future<?> future = executor.submit(() -> {
                     try {
-                        downloadService.download(task,getThreadCount(task.getId()));
+                        downloadService.download(task, getThreadCount(task.getId()));
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -108,7 +108,7 @@ public class TaskServiceImpl implements TaskService {
         int sliceIndex = task.getCurrentSlice();
         Future<?> future = executor.submit(() -> {
             try {
-                downloadService.download(task,getThreadCount(task.getId()));
+                downloadService.download(task, getThreadCount(task.getId()));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -190,8 +190,8 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public int updateThreadCount(Integer taskId,int threadNum) {
-        return taskDAO.updateThreadById(taskId,threadNum);
+    public int updateThreadCount(Integer taskId, int threadNum) {
+        return taskDAO.updateThreadById(taskId, threadNum);
     }
 
     @Override
