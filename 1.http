@@ -1,23 +1,4 @@
 ###
-POST http://localhost:8080/task/pause
-Content-Type: application/x-www-form-urlencoded
-
-id=1
-
-###
-POST http://localhost:8080/task/restart
-Content-Type: application/x-www-form-urlencoded
-
-id=1
-
-###
-
-POST http://localhost:8080/task/cancel
-Content-Type: application/x-www-form-urlencoded
-
-id=1
-
-###
 POST http://localhost:8080/task/resume
 Content-Type: application/x-www-form-urlencoded
 
@@ -36,25 +17,42 @@ Content-Type: application/json
 [1,2,3]
 
 ###
-
-
-###
 POST http://localhost:8080/tasks/resume
 Content-Type: application/json
 
 [1,2,3]
 
 ###
-POST http://localhost:8080/tasks/cancel
-Content-Type: application/json
+POST http://localhost:8080/task/restart
+Content-Type: application/x-www-form-urlencoded
 
-[101,102,103]
+id=104
+
+###
+POST http://localhost:8080/task/pause
+Content-Type: application/x-www-form-urlencoded
+
+id=130
 
 ####
 POST http://localhost:8080/task/submit
 Content-Type: application/x-www-form-urlencoded
 
-url = https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe
+//url = https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe
+url = https://download-cdn.jetbrains.com/idea/ideaIU-2023.3.2.exe
+####
+#POST http://localhost:8080/tasks/cancel
+#Content-Type: application/json
+#
+#[101,102,103]
+
+####
+#
+#POST http://localhost:8080/task/cancel
+#Content-Type: application/x-www-form-urlencoded
+#
+#id=124
+
 ####
 #POST http://localhost:8080/thread/update
 #Content-Type: application/json

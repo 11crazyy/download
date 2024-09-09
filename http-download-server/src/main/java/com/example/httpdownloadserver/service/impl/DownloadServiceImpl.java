@@ -1,12 +1,15 @@
 package com.example.httpdownloadserver.service.impl;
 import com.example.httpdownloadserver.dao.SettingsDAO;
 import com.example.httpdownloadserver.dao.TaskDAO;
+import com.example.httpdownloadserver.model.SliceStatus;
 import com.example.httpdownloadserver.model.Task;
 import com.example.httpdownloadserver.service.DownloadService;
 import com.google.common.util.concurrent.RateLimiter;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -24,11 +27,12 @@ public class DownloadServiceImpl implements DownloadService {
     private SettingsDAO settingsDAO;
     @Autowired
     private TaskDAO taskDAO;
+    private static final Logger LOGGER = LogManager.getLogger(DownloadServiceImpl.class);
+
     private static final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
-    //创建okhttp实例
     private static final OkHttpClient client = new OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).writeTimeout(10, TimeUnit.SECONDS).build();
     @Override
-    public void download(Task task, int threadNum) throws IOException {
+    public void download(Task task, int threadNum, boolean isPaused) throws IOException {
         SseEmitter emitter = new SseEmitter();
         emitters.put(task.getId().toString(), emitter);
         //创建一个Request对象
@@ -60,12 +64,20 @@ public class DownloadServiceImpl implements DownloadService {
         AtomicLong downloaded = new AtomicLong(0);
         AtomicInteger currentSlice = new AtomicInteger(0);
         ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(threadNum);
-        int sliceIndex = task.getCurrentSlice();//断点续传
-        for (int i = sliceIndex; i < sliceNum; i++) {
-            executor.setCorePoolSize(taskDAO.getThreadById(task.getId()));
+        Map<Long, SliceStatus> sliceMap = new ConcurrentHashMap<>();
+        for (int i = 0; i < sliceNum; i++) {
             long startIndex = (long) i * sliceSize;
-            long endIndex = (i == sliceNum - 1) ? fileSize - 1 : startIndex + sliceSize - 1;
-            executor.execute(new DownloadTask(task, task.getDownloadPath(), startIndex, endIndex, downloaded, fileSize, currentSlice, taskDAO, rateLimiter, emitter, sliceNum));//线程逻辑：负责任务调度
+            sliceMap.put(startIndex, SliceStatus.UNDOWNLOAD);
+        }
+        for (int i = 0; i < threadNum; i++) {
+            if (i == 2) {isPaused = true; task.setDownloadSpeed(0.0);LOGGER.info("111111111111111111111111下载任务暂停");
+                continue;}//测试测试测试测试
+            if (i == 3){ isPaused = false;LOGGER.info("222222222222222继续下载");}//测试测试测试测试
+//            if (isPaused) {
+//                LOGGER.info("下载任务暂停");
+//                continue;
+//            }
+            executor.submit(new DownloadTask(task, downloaded, fileSize, currentSlice, taskDAO, rateLimiter, emitter, sliceNum, sliceMap, sliceSize));//线程逻辑：负责任务调度
         }
         executor.shutdown();
         try {
@@ -76,7 +88,6 @@ public class DownloadServiceImpl implements DownloadService {
             executor.shutdownNow();//尝试停止所有正在执行的任务 返回尚未执行的任务列表 会终端所有正在等待的任务
         }
     }
-
     @NotNull
     private static String getString(Task task, String directoryPath) {
         // 获取原始文件名

@@ -1,6 +1,7 @@
 package com.example.httpdownloadserver.service.impl;
 
 import com.example.httpdownloadserver.common.PowerConverter;
+import com.example.httpdownloadserver.control.SettingsController;
 import com.example.httpdownloadserver.dao.SettingsDAO;
 import com.example.httpdownloadserver.dao.TaskDAO;
 import com.example.httpdownloadserver.dataobject.SettingsDO;
@@ -10,6 +11,8 @@ import com.example.httpdownloadserver.model.TaskStatus;
 import com.example.httpdownloadserver.service.DownloadService;
 import com.example.httpdownloadserver.service.TaskService;
 import org.apache.ibatis.javassist.runtime.Inner;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -20,9 +23,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 public class TaskServiceImpl implements TaskService {
+    private static final Logger LOGGER = LogManager.getLogger(TaskServiceImpl.class);
+    private final ConcurrentHashMap<Integer,AtomicBoolean> taskPaused = new ConcurrentHashMap<>();
+    private final AtomicBoolean isPaused = new AtomicBoolean(false);
     @Autowired
     private DownloadService downloadService;
     @Autowired
@@ -56,6 +63,7 @@ public class TaskServiceImpl implements TaskService {
         //将任务信息存到下载队列中
         Task task = PowerConverter.convert(taskDO, Task.class);
         task.setStatus(TaskStatus.valueOf(taskDO.getStatus()));
+        taskPaused.put(task.getId(),new AtomicBoolean(false));
         taskDeque.offer(task);
         //启动任务处理，从队列中取出任务并启动下载过程
         processTasks();
@@ -68,7 +76,10 @@ public class TaskServiceImpl implements TaskService {
             if (task != null) {
                 Future<?> future = executor.submit(() -> {
                     try {
-                        downloadService.download(task, getThreadCount(task.getId()));
+//                        if (pauseDownload(task.getId())) {
+//                            downloadService.download(task, getThreadCount(task.getId()),true);
+//                        }
+                        downloadService.download(task, getThreadCount(task.getId()),false);
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -83,38 +94,42 @@ public class TaskServiceImpl implements TaskService {
     public boolean restartDownload(Integer id) {
         //重新开始下载，先取消下载，再重新提交下载任务
         if (cancelDownload(id)) {
-            Task task = taskDAO.selectById(id).toModel();
+            TaskDO taskDO = taskDAO.selectById(id);
+            if (taskDO == null) {
+                LOGGER.error("task not found:" + id);
+                throw new RuntimeException("task not found:" + id);
+            }
+            Task task = taskDO.toModel();
             taskDeque.offer(task);
             processTasks();
-        }
-        return false;
-    }
-
-    @Override
-    public boolean pauseDownload(Integer id) {
-        //利用future.cancel暂停下载
-        Future<?> future = taskFutures.get(id);
-        if (future != null) {
-            future.cancel(true);
             return true;
         }
         return false;
     }
 
     @Override
-    public boolean resumeDownload(Integer id) {
-        //得到已经下载的分片数字，继续下载
-        Task task = taskDAO.selectById(id).toModel();
-        int sliceIndex = task.getCurrentSlice();
-        Future<?> future = executor.submit(() -> {
-            try {
-                downloadService.download(task, getThreadCount(task.getId()));
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
-        taskFutures.put(task.getId(), future);
+    public boolean pauseDownload(Integer id) {
+        //        if (paused != null){
+//            isPaused.set(true);
+//            return true;
+//        }
+//        return false;
+        taskPaused.computeIfAbsent(id, k -> new AtomicBoolean(false));
+        taskPaused.get(id).set(true);
         return true;
+    }
+
+    @Override
+    public boolean resumeDownload(Integer id) {
+        AtomicBoolean paused = taskPaused.get(id);
+        if (paused != null){
+            paused.set(false);
+            synchronized (paused){
+                isPaused.notifyAll();
+            }
+            return true;
+        }
+        return false;
     }
 
     @Override

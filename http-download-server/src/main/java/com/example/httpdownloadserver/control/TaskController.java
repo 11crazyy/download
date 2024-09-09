@@ -54,9 +54,11 @@ public class TaskController {
         boolean success = taskService.restartDownload(id);
         if (success) {
             result.setSuccess(true);
+            result.setMessage("restart task success");
             LOGGER.info("restart task success");
         } else {
             result.setSuccess(false);
+            result.setMessage("restart task failed");
             LOGGER.warn("restart task failed");
         }
         return result;
@@ -159,9 +161,11 @@ public class TaskController {
         boolean success = taskService.pauseDownloads(ids);
         if (success) {
             result.setSuccess(true);
+            result.setMessage("pause tasks success");
             LOGGER.info("pause tasks success");
         } else {
             result.setSuccess(false);
+            result.setMessage("pause tasks failed");
             LOGGER.warn("pause tasks failed");
         }
         return result;

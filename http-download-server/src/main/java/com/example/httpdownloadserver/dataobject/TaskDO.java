@@ -24,18 +24,6 @@ public class TaskDO {
 
     }
 
-    public TaskDO(Task task) {
-        this.id = task.getId();
-        this.status = String.valueOf(task.getStatus());
-        this.downloadSpeed = task.getDownloadSpeed();
-        this.downloadProgress = task.getDownloadProgress();
-        this.downloadRemainingTime = task.getDownloadRemainingTime();
-        this.downloadThread = task.getDownloadThread();
-        this.currentSlice = getCurrentSlice();
-        this.downloadPath = task.getDownloadPath();
-        this.downloadLink = task.getDownloadLink();
-    }
-
     public Task toModel() {
         Task task = new Task();
         task.setId(this.id);

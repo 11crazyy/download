@@ -21,6 +21,6 @@ public class SseController {
     public void sendSseMessage(String taskId) throws IOException {
         TaskDO taskDO = taskDAO.selectById(Integer.parseInt(taskId));
         Task task = taskDO.toModel();
-        downloadService.download(task, task.getDownloadThread());
+        downloadService.download(task, task.getDownloadThread(),false);
     }
 }
