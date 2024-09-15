@@ -1,6 +1,7 @@
 package com.example.httpdownloadserver.dao;
 
 import com.example.httpdownloadserver.dataobject.TaskDO;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -22,10 +23,10 @@ public interface TaskDAO {
     //根据所选列表删除文件
     int deleteByIds(List<Integer> ids);
     //根据任务id更新任务
-    int updateThreadById(Integer id,int downloadThread);
+    int updateThreadById(@Param("id") Integer id,@Param("downloadThread") int downloadThread);
     //获得线程数
     int getThreadById(Integer id);
     //根据任务id更新任务
-    int updateById(Integer id);
+    int updateById(TaskDO taskDO);
 
 }

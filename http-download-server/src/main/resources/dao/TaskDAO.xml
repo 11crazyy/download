@@ -110,8 +110,7 @@
             current_slice = #{currentSlice},
             download_thread = #{downloadThread},
             download_path = #{downloadPath},
-            download_link = #{downloadLink},
-            gmt_modified = now()
+            download_link = #{downloadLink}
         where id = #{id}
     </update>
 

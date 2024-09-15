@@ -1,6 +1,8 @@
 package com.example.httpdownloadserver.service.impl;
 
+import com.example.httpdownloadserver.common.PowerConverter;
 import com.example.httpdownloadserver.dao.TaskDAO;
+import com.example.httpdownloadserver.dataobject.TaskDO;
 import com.example.httpdownloadserver.model.DownloadProgress;
 import com.example.httpdownloadserver.model.SliceStatus;
 import com.example.httpdownloadserver.model.Task;
@@ -13,10 +15,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InterruptedIOException;
-import java.io.RandomAccessFile;
+import java.io.*;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -25,7 +24,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class DownloadTask implements Runnable {
     private static final Logger LOGGER = LogManager.getLogger(DownloadTask.class);
     private final String fileUrl;
-    private final AtomicLong bytesDownloaded;
+    private AtomicLong bytesDownloaded;
     private final Long totalFileSize;
     private final Task task;//计算剩余时间等属性
     private final AtomicInteger currentSlice;
@@ -33,13 +32,14 @@ public class DownloadTask implements Runnable {
     private final Map<Long, SliceStatus> sliceMap;
     private final RateLimiter rateLimiter;
     private final SseEmitter emitter;
+    private final File progressFile;
     private final int sliceNum;
     private final int sliceSize;
     private static final OkHttpClient client = new OkHttpClient();
     private final Object lock = new Object();//锁 用于同步访问emitter和标志位
     private final AtomicBoolean isEmitterCompleted = new AtomicBoolean(false);//标志位 用于判断emitter是否已经完成
 
-    public DownloadTask(Task task, AtomicLong bytesDownloaded, Long totalFileSize, AtomicInteger currentSlice, TaskDAO taskDAO, RateLimiter rateLimiter, SseEmitter emitter, int sliceNum, Map<Long, SliceStatus> sliceMap, int sliceSize) {
+    public DownloadTask(Task task, AtomicLong bytesDownloaded, Long totalFileSize, AtomicInteger currentSlice, TaskDAO taskDAO, RateLimiter rateLimiter, SseEmitter emitter, int sliceNum, Map<Long, SliceStatus> sliceMap, int sliceSize,File progressFile) {
         this.task = task;
         this.fileUrl = task.getDownloadLink();
         this.bytesDownloaded = bytesDownloaded;
@@ -51,6 +51,7 @@ public class DownloadTask implements Runnable {
         this.sliceNum = sliceNum;
         this.sliceMap = sliceMap;
         this.sliceSize = sliceSize;
+        this.progressFile = progressFile;
     }
 
     //任务逻辑：下载任务 计算剩余时间 下载进度 以及下载速度
@@ -76,10 +77,14 @@ public class DownloadTask implements Runnable {
                 throw new IOException("Empty response body");
             }
             InputStream inputStream = body.byteStream();
+            if (progressFile.exists()){
+                BufferedReader reader = new BufferedReader(new FileReader(progressFile));
+                bytesDownloaded = new AtomicLong(Long.parseLong(reader.readLine()));
+            }
             RandomAccessFile raf = new RandomAccessFile(task.getDownloadPath(), "rw");//随机访问文件 将下载的数据写入到目标文件的特定位置
             raf.seek(sliceIndex);
             //读取并写入数据
-            byte[] buffer = new byte[1024];
+            byte[] buffer = new byte[4096];
             int bytesRead;
             long startTime = System.currentTimeMillis();//开始时间
             while ((bytesRead = inputStream.read(buffer)) != -1) {
@@ -90,6 +95,8 @@ public class DownloadTask implements Runnable {
                 //控制下载速度
                 rateLimiter.acquire(bytesRead);//请求下载所需的令牌
                 bytesDownloaded.addAndGet(bytesRead);
+                BufferedWriter writer = new BufferedWriter(new FileWriter(progressFile));
+                writer.write(String.valueOf(bytesDownloaded.get()));
                 raf.write(buffer, 0, bytesRead);
                 //计算下载速度
                 long currentTime = System.currentTimeMillis();
@@ -126,8 +133,20 @@ public class DownloadTask implements Runnable {
             //分片下载完成 更新currentSlice和数据库
             currentSlice.incrementAndGet();
             task.setCurrentSlice(currentSlice.get());
-            taskDAO.updateById(task.getId());
+            taskDAO.updateById(PowerConverter.convert(task, TaskDO.class));
             sliceMap.put(sliceIndex, SliceStatus.DOWNLOADED);
+            //把下载完的分片写入临时文件 防止下载失败时需要重新下载整个文件
+
+
+
+
+
+
+
+
+
+
+
         } catch (IOException e) {
             synchronized (lock) {
                 if (!isEmitterCompleted.get()) {

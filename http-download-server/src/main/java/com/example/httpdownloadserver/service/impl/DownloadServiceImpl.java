@@ -28,7 +28,6 @@ public class DownloadServiceImpl implements DownloadService {
     @Autowired
     private TaskDAO taskDAO;
     private static final Logger LOGGER = LogManager.getLogger(DownloadServiceImpl.class);
-
     private static final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
     private static final OkHttpClient client = new OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).writeTimeout(10, TimeUnit.SECONDS).build();
     @Override
@@ -69,15 +68,14 @@ public class DownloadServiceImpl implements DownloadService {
             long startIndex = (long) i * sliceSize;
             sliceMap.put(startIndex, SliceStatus.UNDOWNLOAD);
         }
+        //创建一个用于写文件下载分片下载进度的临时文件
+        File progressFile = new File(task.getDownloadPath() + ".tmp");
         for (int i = 0; i < threadNum; i++) {
-            if (i == 2) {isPaused = true; task.setDownloadSpeed(0.0);LOGGER.info("111111111111111111111111下载任务暂停");
-                continue;}//测试测试测试测试
-            if (i == 3){ isPaused = false;LOGGER.info("222222222222222继续下载");}//测试测试测试测试
-//            if (isPaused) {
-//                LOGGER.info("下载任务暂停");
-//                continue;
-//            }
-            executor.submit(new DownloadTask(task, downloaded, fileSize, currentSlice, taskDAO, rateLimiter, emitter, sliceNum, sliceMap, sliceSize));//线程逻辑：负责任务调度
+            if (isPaused) {
+                LOGGER.info("下载任务暂停");
+                continue;
+            }
+            executor.submit(new DownloadTask(task, downloaded, fileSize, currentSlice, taskDAO, rateLimiter, emitter, sliceNum, sliceMap, sliceSize,progressFile));//线程逻辑：负责任务调度
         }
         executor.shutdown();
         try {
