@@ -38,9 +38,8 @@ id=130
 POST http://localhost:8080/task/submit
 Content-Type: application/x-www-form-urlencoded
 
-//url = https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe
-url = https://download-cdn.jetbrains.com/idea/ideaIU-2023.3.2.exe
-####
+url=https://download.oracle.com/java/17/latest/jdk-17_windows-x64_bin.exe
+###
 #POST http://localhost:8080/tasks/cancel
 #Content-Type: application/json
 #
@@ -71,7 +70,7 @@ url = https://download-cdn.jetbrains.com/idea/ideaIU-2023.3.2.exe
 #
 
 ####
-#GET https://download.oracle.com/java/17/latest/jdk-17_windows-x64_bin.exe
+HEAD https://download.oracle.com/java/17/latest/jdk-17_windows-x64_bin.exe
 
 ####
 #POST http://localhost:8080/settings/save

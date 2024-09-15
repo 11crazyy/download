@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Service
 public class TaskServiceImpl implements TaskService {
     private static final Logger LOGGER = LogManager.getLogger(TaskServiceImpl.class);
-    private final ConcurrentHashMap<Integer,AtomicBoolean> taskPaused = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, AtomicBoolean> taskPaused = new ConcurrentHashMap<>();
     private final AtomicBoolean isPaused = new AtomicBoolean(false);
     @Autowired
     private DownloadService downloadService;
@@ -38,7 +38,7 @@ public class TaskServiceImpl implements TaskService {
     private SettingsDAO settingsDAO;
     private final ExecutorService executor = Executors.newFixedThreadPool(4);//任务下载线程池，最多同时下载4个文件
     private final BlockingDeque<Task> taskDeque = new LinkedBlockingDeque<>();//线程安全，支持阻塞操作，适合生产者-消费者模式
-    private final ConcurrentHashMap<Integer, Future<?>> taskFutures = new ConcurrentHashMap<>();//控制接口 更方便控制任务的暂停、继续、取消
+    private final ConcurrentHashMap<Long, Future<?>> taskFutures = new ConcurrentHashMap<>();//控制接口 更方便控制任务的暂停、继续、取消
 
     @Override
     public Task submitDownload(String url) {
@@ -63,11 +63,11 @@ public class TaskServiceImpl implements TaskService {
         //将任务信息存到下载队列中
         Task task = PowerConverter.convert(taskDO, Task.class);
         task.setStatus(TaskStatus.valueOf(taskDO.getStatus()));
-        taskPaused.put(task.getId(),new AtomicBoolean(false));
+        taskPaused.put(task.getId(), new AtomicBoolean(false));
         taskDeque.offer(task);
         //启动任务处理，从队列中取出任务并启动下载过程
         processTasks();
-        return taskDO.toModel();
+        return PowerConverter.convert(taskDO, Task.class);
     }
 
     private void processTasks() {
@@ -79,9 +79,9 @@ public class TaskServiceImpl implements TaskService {
 //                        if (pauseDownload(task.getId())) {
 //                            downloadService.download(task, getThreadCount(task.getId()),true);
 //                        }
-                        downloadService.download(task, getThreadCount(task.getId()),false);
+                        downloadService.download(task, task.getDownloadThread(), false);
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        LOGGER.error("request error", e);
                     }
                 });
                 //将任务的Future对象保存到ConcurrentHashMap中
@@ -91,7 +91,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public boolean restartDownload(Integer id) {
+    public boolean restartDownload(Long id) {
         //重新开始下载，先取消下载，再重新提交下载任务
         if (cancelDownload(id)) {
             TaskDO taskDO = taskDAO.selectById(id);
@@ -99,7 +99,7 @@ public class TaskServiceImpl implements TaskService {
                 LOGGER.error("task not found:" + id);
                 throw new RuntimeException("task not found:" + id);
             }
-            Task task = taskDO.toModel();
+            Task task = PowerConverter.convert(taskDO, Task.class);
             taskDeque.offer(task);
             processTasks();
             return true;
@@ -108,7 +108,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public boolean pauseDownload(Integer id) {
+    public boolean pauseDownload(Long id) {
         //        if (paused != null){
 //            isPaused.set(true);
 //            return true;
@@ -120,11 +120,11 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public boolean resumeDownload(Integer id) {
+    public boolean resumeDownload(Long id) {
         AtomicBoolean paused = taskPaused.get(id);
-        if (paused != null){
+        if (paused != null) {
             paused.set(false);
-            synchronized (paused){
+            synchronized (paused) {
                 isPaused.notifyAll();
             }
             return true;
@@ -133,7 +133,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public boolean cancelDownload(Integer id) {
+    public boolean cancelDownload(Long id) {
         Future<?> future = taskFutures.get(id);
         if (future != null) {
             future.cancel(true);//取消下载任务
@@ -150,77 +150,73 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public boolean restartDownloads(List<Integer> taskIds) {
+    public boolean restartDownloads(List<Long> taskIds) {
         if (taskIds == null || taskIds.isEmpty()) {
             return false;
         }
-        for (Integer taskId : taskIds) {
+        for (Long taskId : taskIds) {
             restartDownload(taskId);
         }
         return true;
     }
 
     @Override
-    public boolean cancelDownloads(List<Integer> taskIds) {
+    public boolean cancelDownloads(List<Long> taskIds) {
         if (taskIds == null || taskIds.isEmpty()) {
             return false;
         }
-        for (Integer taskId : taskIds) {
+        for (Long taskId : taskIds) {
             cancelDownload(taskId);
         }
         return true;
     }
 
     @Override
-    public boolean pauseDownloads(List<Integer> taskIds) {
+    public boolean pauseDownloads(List<Long> taskIds) {
         if (taskIds == null || taskIds.isEmpty()) {
             return false;
         }
-        for (Integer taskId : taskIds) {
+        for (Long taskId : taskIds) {
             pauseDownload(taskId);
         }
         return true;
     }
 
     @Override
-    public boolean resumeDownloads(List<Integer> taskIds) {
+    public boolean resumeDownloads(List<Long> taskIds) {
         if (taskIds == null || taskIds.isEmpty()) {
             return false;
         }
-        for (Integer taskId : taskIds) {
+        for (Long taskId : taskIds) {
             resumeDownload(taskId);
         }
         return true;
     }
 
     @Override
-    public boolean deleteDownloads(List<Integer> taskIds) {
+    public boolean deleteDownloads(List<Long> taskIds) {
         if (taskIds == null || taskIds.isEmpty()) {
             return false;
         }
-        for (Integer taskId : taskIds) {
+        for (Long taskId : taskIds) {
             cancelDownload(taskId);
         }
         return true;
     }
 
     @Override
-    public int updateThreadCount(Integer taskId, int threadNum) {
+    public int updateThreadCount(Long taskId, int threadNum) {
         return taskDAO.updateThreadById(taskId, threadNum);
     }
 
     @Override
-    public int getThreadCount(Integer taskId) {
+    public int getThreadCount(Long taskId) {
         return taskDAO.getThreadById(taskId);
     }
 
     @Override
     public List<Task> listByStatus(String status) {
         List<TaskDO> taskDOS = taskDAO.selectByStatus(status);
-        List<Task> tasks = new ArrayList<>();
-        for (TaskDO taskDO : taskDOS) {
-            tasks.add(taskDO.toModel());
-        }
-        return tasks;
+        return PowerConverter.batchConvert(taskDOS, Task.class);
     }
 }

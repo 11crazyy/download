@@ -1,4 +1,5 @@
 package com.example.httpdownloadserver.service.impl;
+
 import com.example.httpdownloadserver.dao.SettingsDAO;
 import com.example.httpdownloadserver.dao.TaskDAO;
 import com.example.httpdownloadserver.model.SliceStatus;
@@ -10,10 +11,10 @@ import okhttp3.Request;
 import okhttp3.Response;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
@@ -30,8 +31,10 @@ public class DownloadServiceImpl implements DownloadService {
     private static final Logger LOGGER = LogManager.getLogger(DownloadServiceImpl.class);
     private static final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
     private static final OkHttpClient client = new OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).writeTimeout(10, TimeUnit.SECONDS).build();
+
     @Override
     public void download(Task task, int threadNum, boolean isPaused) throws IOException {
+        LOGGER.info("开始下载任务");
         SseEmitter emitter = new SseEmitter();
         emitters.put(task.getId().toString(), emitter);
         //创建一个Request对象
@@ -66,7 +69,7 @@ public class DownloadServiceImpl implements DownloadService {
         Map<Long, SliceStatus> sliceMap = new ConcurrentHashMap<>();
         for (int i = 0; i < sliceNum; i++) {
             long startIndex = (long) i * sliceSize;
-            sliceMap.put(startIndex, SliceStatus.UNDOWNLOAD);
+            sliceMap.put(startIndex, SliceStatus.WAITING);
         }
         //创建一个用于写文件下载分片下载进度的临时文件
         File progressFile = new File(task.getDownloadPath() + ".tmp");
@@ -86,7 +89,7 @@ public class DownloadServiceImpl implements DownloadService {
             executor.shutdownNow();//尝试停止所有正在执行的任务 返回尚未执行的任务列表 会终端所有正在等待的任务
         }
     }
-    @NotNull
+
     private static String getString(Task task, String directoryPath) {
         // 获取原始文件名
         String fileName = task.getDownloadLink().substring(task.getDownloadLink().lastIndexOf("/") + 1);
@@ -117,6 +120,7 @@ public class DownloadServiceImpl implements DownloadService {
         }
         return fullPath;
     }
+
     @Override
     public SseEmitter getEmitter(String taskId) {
         if (emitters.containsKey(taskId)) {
@@ -124,15 +128,17 @@ public class DownloadServiceImpl implements DownloadService {
         }
         return null;
     }
+
     public int sliceSize(Long fileSize) {
-        if (fileSize <= 100 * 1024 * 1024) {//小于100MB
-            return 1024 * 1024;//1MB
-        } else if (fileSize <= 1024 * 1024 * 1024) {//小于1GB
-            return 10 * 1024 * 1024;//10MB
-        } else {//大于1GB
-            return 50 * 1024 * 1024;//50MB;
+        if (fileSize <= 100 << 20) { //小于100MB
+            return 1 << 20; //1MB
+        } else if (fileSize <= 1 << 30) { //小于1GB
+            return 10 << 20; //10MB
+        } else { //大于1GB
+            return 50 << 20; //50MB;
         }
     }
+
     private String saveFilePath(String directoryPath, String destinationPath) throws IOException {
         File file = new File(destinationPath);
         File file1 = new File(directoryPath, file.getName());

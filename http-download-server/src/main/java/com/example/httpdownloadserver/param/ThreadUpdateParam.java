@@ -4,6 +4,6 @@ import lombok.Data;
 
 @Data
 public class ThreadUpdateParam {
-    Integer taskId;
+    Long taskId;
     int threadNum;
 }

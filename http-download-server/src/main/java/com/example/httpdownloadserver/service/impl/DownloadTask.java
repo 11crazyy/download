@@ -110,10 +110,10 @@ public class DownloadTask implements Runnable {
                 long remainingBytes = totalFileSize - bytesDownloaded.get();
                 double remainingTime = remainingBytes / downloadSpeed;//剩余时间 单位s
                 task.setDownloadRemainingTime((long) remainingTime);
-                LOGGER.info(String.format("下载进度：%d%%, 下载速度：%.2fKB/s, 剩余时间：%.2f秒,已经下载的文件大小：%dKB\n", (int) progress, downloadSpeed / 1024, remainingTime, bytesDownloaded.get()/1024));
                 //同步对emitter的访问，确保多线程安全
                 synchronized (lock) {
                     if (!isEmitterCompleted.get()) {
+                        LOGGER.info(String.format("下载进度：%d%%, 下载速度：%.2fKB/s, 剩余时间：%.2f秒,已经下载的文件大小：%dKB\n", (int) progress, downloadSpeed / 1024, remainingTime, bytesDownloaded.get() / 1024));
                         emitter.send(new DownloadProgress((int) progress, downloadSpeed / 1024, (long) remainingTime, bytesDownloaded.get()));
                     }
                 }
@@ -165,9 +165,10 @@ public class DownloadTask implements Runnable {
             }
         }
     }
+
     private synchronized Long claimSlice() {//确保分片的唯一认领
         for (Map.Entry<Long, SliceStatus> statusEntry : sliceMap.entrySet()) {
-            if (statusEntry.getValue() == SliceStatus.UNDOWNLOAD) {
+            if (statusEntry.getValue() == SliceStatus.WAITING) {
                 statusEntry.setValue(SliceStatus.DOWNLOADING);
                 return statusEntry.getKey();
             }

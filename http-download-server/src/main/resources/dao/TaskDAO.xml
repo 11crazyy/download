@@ -33,12 +33,12 @@
                 #{downloadPath},
                 #{downloadLink})
     </insert>
-    <delete id="deleteById">
+    <delete id="deleteById" parameterType="java.lang.Long">
         delete
         from task
         where id = #{id}
     </delete>
-    <select id="selectById" resultType="com.example.httpdownloadserver.dataobject.TaskDO">
+    <select id="selectById" resultMap="TasksMap">
         select id,
                status,
                download_speed,
@@ -53,7 +53,7 @@
         from task
         where id = #{id}
     </select>
-    <select id="selectAll" resultType="com.example.httpdownloadserver.dataobject.TaskDO">
+    <select id="selectAll" resultMap="TasksMap">
         select id,
                status,
                download_speed,
@@ -67,8 +67,7 @@
                gmt_modified
         from task
     </select>
-    <select id="selectByStatus" resultMap="TasksMap"
-            parameterType="java.lang.String">
+    <select id="selectByStatus" resultMap="TasksMap" parameterType="java.lang.String">
         select id,
                status,
                download_speed,
@@ -96,12 +95,12 @@
         set download_thread = #{downloadThread}
         where id = #{id}
     </update>
-    <select id="getThreadById" parameterType="Integer" resultType="int">
+    <select id="getThreadById" parameterType="java.lang.Long" resultType="int">
         select download_thread
         from task
         where id = #{id}
     </select>
-    <update id="updateById" parameterType="int">
+    <update id="updateById" parameterType="com.example.httpdownloadserver.dataobject.TaskDO">
         update task
         set status = #{status},
             download_speed = #{downloadSpeed},

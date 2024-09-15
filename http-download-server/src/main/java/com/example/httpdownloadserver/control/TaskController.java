@@ -48,7 +48,7 @@ public class TaskController {
      */
     @PostMapping("/task/restart")
     @ResponseBody
-    public Result<Boolean> restartDownload(@RequestParam Integer id) {
+    public Result<Boolean> restartDownload(@RequestParam Long id) {
         Result<Boolean> result = new Result<>();
         if (isIdNull(result, id)) return result;
         boolean success = taskService.restartDownload(id);
@@ -71,7 +71,7 @@ public class TaskController {
      */
     @PostMapping("/task/pause")
     @ResponseBody
-    public Result<Boolean> pauseDownload(@RequestParam Integer id) {
+    public Result<Boolean> pauseDownload(@RequestParam Long id) {
         Result<Boolean> result = new Result<>();
         if (isIdNull(result, id)) return result;
         boolean success = taskService.pauseDownload(id);
@@ -92,7 +92,7 @@ public class TaskController {
      */
     @PostMapping("/task/resume")
     @ResponseBody
-    public Result<Boolean> resumeDownload(@RequestParam Integer id) {
+    public Result<Boolean> resumeDownload(@RequestParam Long id) {
         Result<Boolean> result = new Result<>();
         if (isIdNull(result, id)) return result;
         boolean success = taskService.resumeDownload(id);
@@ -113,7 +113,7 @@ public class TaskController {
      */
     @PostMapping("/task/cancel")
     @ResponseBody
-    public Result<Boolean> cancelDownload(@RequestParam Integer id) {
+    public Result<Boolean> cancelDownload(@RequestParam Long id) {
         Result<Boolean> result = new Result<>();
         if (isIdNull(result, id)) return result;
         boolean success = taskService.cancelDownload(id);
@@ -134,7 +134,7 @@ public class TaskController {
      */
     @PostMapping("/tasks/restart")
     @ResponseBody
-    public Result<Boolean> startDownloads(@RequestBody List<Integer> ids) {
+    public Result<Boolean> startDownloads(@RequestBody List<Long> ids) {
         Result<Boolean> result = new Result<>();
         if (isIdsNull(result, ids)) return result;
         boolean success = taskService.restartDownloads(ids);
@@ -155,7 +155,7 @@ public class TaskController {
      */
     @PostMapping("/tasks/pause")
     @ResponseBody
-    public Result<Boolean> pauseDownloads(@RequestBody List<Integer> ids) {
+    public Result<Boolean> pauseDownloads(@RequestBody List<Long> ids) {
         Result<Boolean> result = new Result<>();
         if (isIdsNull(result, ids)) return result;
         boolean success = taskService.pauseDownloads(ids);
@@ -178,7 +178,7 @@ public class TaskController {
      */
     @PostMapping("/tasks/resume")
     @ResponseBody
-    public Result<Boolean> resumeDownloads(@RequestBody List<Integer> ids) {
+    public Result<Boolean> resumeDownloads(@RequestBody List<Long> ids) {
         Result<Boolean> result = new Result<>();
         if (isIdsNull(result, ids)) return result;
         boolean success = taskService.resumeDownloads(ids);
@@ -199,7 +199,7 @@ public class TaskController {
      */
     @PostMapping("/tasks/cancel")
     @ResponseBody
-    public Result<Boolean> cancelDownloads(@RequestBody List<Integer> ids) {
+    public Result<Boolean> cancelDownloads(@RequestBody List<Long> ids) {
         Result<Boolean> result = new Result<>();
         if (isIdsNull(result, ids)) return result;
         boolean success = taskService.cancelDownloads(ids);
@@ -222,8 +222,8 @@ public class TaskController {
      */
     @PostMapping("/thread/update")
     @ResponseBody
-    public Result<Integer> updateThread(@RequestBody ThreadUpdateParam param) {
-        Result<Integer> result = new Result<>();
+    public Result<Long> updateThread(@RequestBody ThreadUpdateParam param) {
+        Result<Long> result = new Result<>();
         if (param == null) {
             result.setSuccess(false);
             result.setMessage("param is null");
@@ -262,7 +262,7 @@ public class TaskController {
         return listResult;
     }
 
-    public boolean isIdNull(Result<?> result, Integer id) {
+    public boolean isIdNull(Result<?> result, Long id) {
         if (id == null) {
             result.setSuccess(false);
             result.setMessage("id is null");
@@ -272,7 +272,7 @@ public class TaskController {
         return false;
     }
 
-    public boolean isIdsNull(Result<?> result, List<Integer> ids) {
+    public boolean isIdsNull(Result<?> result, List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             result.setSuccess(false);
             result.setMessage("ids is null");
