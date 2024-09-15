@@ -58,6 +58,9 @@ public class DownloadTask implements Runnable {
     @Override
     public void run() {
         //认领未下载的分片
+        // todo 查询当前线程状态，如果任务暂停或当前线程状态是结束，直接返回（结束任务）
+        // while status != end && claim slice != null
+        // if exception, retry
         Long sliceIndex = claimSlice();
         if (sliceIndex == null) {
             LOGGER.info("没有未下载的分片");
@@ -135,18 +138,7 @@ public class DownloadTask implements Runnable {
             task.setCurrentSlice(currentSlice.get());
             taskDAO.updateById(PowerConverter.convert(task, TaskDO.class));
             sliceMap.put(sliceIndex, SliceStatus.DOWNLOADED);
-            //把下载完的分片写入临时文件 防止下载失败时需要重新下载整个文件
-
-
-
-
-
-
-
-
-
-
-
+            // todo 把下载完的分片写入临时文件 防止下载失败时需要重新下载整个文件
         } catch (IOException e) {
             synchronized (lock) {
                 if (!isEmitterCompleted.get()) {

@@ -72,6 +72,7 @@ public class DownloadServiceImpl implements DownloadService {
             sliceMap.put(startIndex, SliceStatus.WAITING);
         }
         //创建一个用于写文件下载分片下载进度的临时文件
+        // todo 调度的时候如果需要减少线程，则随机挑选线程，将状态直接改为结束
         File progressFile = new File(task.getDownloadPath() + ".tmp");
         for (int i = 0; i < threadNum; i++) {
             if (isPaused) {
