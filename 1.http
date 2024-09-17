@@ -38,6 +38,7 @@ id=130
 POST http://localhost:8080/task/submit
 Content-Type: application/x-www-form-urlencoded
 
+#url = https://nodejs.org/dist/v12.14.1/node-v12.14.1-x64.msi
 url=https://download.oracle.com/java/17/latest/jdk-17_windows-x64_bin.exe
 ###
 #POST http://localhost:8080/tasks/cancel

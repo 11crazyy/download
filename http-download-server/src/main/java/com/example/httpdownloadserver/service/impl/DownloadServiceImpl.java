@@ -4,6 +4,7 @@ import com.example.httpdownloadserver.dao.SettingsDAO;
 import com.example.httpdownloadserver.dao.TaskDAO;
 import com.example.httpdownloadserver.model.SliceStatus;
 import com.example.httpdownloadserver.model.Task;
+import com.example.httpdownloadserver.model.ThreadStatus;
 import com.example.httpdownloadserver.service.DownloadService;
 import com.google.common.util.concurrent.RateLimiter;
 import okhttp3.OkHttpClient;
@@ -17,6 +18,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -30,6 +32,7 @@ public class DownloadServiceImpl implements DownloadService {
     private TaskDAO taskDAO;
     private static final Logger LOGGER = LogManager.getLogger(DownloadServiceImpl.class);
     private static final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
+    private static final Map<Long, ThreadStatus> threadMap = new HashMap<>();
     private static final OkHttpClient client = new OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).writeTimeout(10, TimeUnit.SECONDS).build();
 
     @Override
@@ -74,12 +77,15 @@ public class DownloadServiceImpl implements DownloadService {
         //创建一个用于写文件下载分片下载进度的临时文件
         // todo 调度的时候如果需要减少线程，则随机挑选线程，将状态直接改为结束
         File progressFile = new File(task.getDownloadPath() + ".tmp");
+        progressFile.createNewFile();
         for (int i = 0; i < threadNum; i++) {
             if (isPaused) {
+                threadMap.put(Thread.currentThread().getId(), ThreadStatus.STOPPED);//线程状态：暂停
                 LOGGER.info("下载任务暂停");
                 continue;
             }
-            executor.submit(new DownloadTask(task, downloaded, fileSize, currentSlice, taskDAO, rateLimiter, emitter, sliceNum, sliceMap, sliceSize,progressFile));//线程逻辑：负责任务调度
+            threadMap.put(Thread.currentThread().getId(), ThreadStatus.RUNNING);//线程状态：运行
+            executor.submit(new DownloadTask(task, downloaded, fileSize, currentSlice, taskDAO, rateLimiter, emitter, sliceNum, sliceMap, sliceSize, progressFile, threadMap));//线程逻辑：负责任务调度
         }
         executor.shutdown();
         try {
@@ -90,7 +96,6 @@ public class DownloadServiceImpl implements DownloadService {
             executor.shutdownNow();//尝试停止所有正在执行的任务 返回尚未执行的任务列表 会终端所有正在等待的任务
         }
     }
-
     private static String getString(Task task, String directoryPath) {
         // 获取原始文件名
         String fileName = task.getDownloadLink().substring(task.getDownloadLink().lastIndexOf("/") + 1);
