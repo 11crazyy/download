@@ -82,10 +82,10 @@ public class DownloadServiceImpl implements DownloadService {
             if (isPaused) {
                 threadMap.put(Thread.currentThread().getId(), ThreadStatus.STOPPED);//线程状态：暂停
                 LOGGER.info("下载任务暂停");
-                continue;
+                break;
             }
             threadMap.put(Thread.currentThread().getId(), ThreadStatus.RUNNING);//线程状态：运行
-            executor.submit(new DownloadTask(task, downloaded, fileSize, currentSlice, taskDAO, rateLimiter, emitter, sliceNum, sliceMap, sliceSize, progressFile, threadMap));//线程逻辑：负责任务调度
+            executor.submit(new DownloadTask(task, downloaded, fileSize, currentSlice,taskDAO, rateLimiter, emitter, sliceNum, sliceMap, sliceSize, progressFile, threadMap));//线程逻辑：负责任务调度
         }
         executor.shutdown();
         try {

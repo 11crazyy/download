@@ -89,7 +89,6 @@ public class TaskServiceImpl implements TaskService {
             }
         }
     }
-
     @Override
     public boolean restartDownload(Long id) {
         //重新开始下载，先取消下载，再重新提交下载任务

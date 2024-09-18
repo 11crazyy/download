@@ -41,6 +41,7 @@ public class DownloadTask implements Runnable {
     private static final OkHttpClient client = new OkHttpClient();
     private final Object lock = new Object();//锁 用于同步访问emitter和标志位
     private final AtomicBoolean isEmitterCompleted = new AtomicBoolean(false);//标志位 用于判断emitter是否已经完成
+
     public DownloadTask(Task task, AtomicLong bytesDownloaded, Long totalFileSize, AtomicInteger currentSlice, TaskDAO taskDAO, RateLimiter rateLimiter, SseEmitter emitter, int sliceNum, Map<Long, SliceStatus> sliceMap, int sliceSize, File progressFile, Map<Long, ThreadStatus> threadMap) {
         this.task = task;
         this.fileUrl = task.getDownloadLink();
@@ -56,13 +57,18 @@ public class DownloadTask implements Runnable {
         this.sliceSize = sliceSize;
         this.progressFile = progressFile;
     }
+
     //任务逻辑：下载任务 计算剩余时间 下载进度 以及下载速度
     @Override
     public void run() {
         // todo 查询当前线程状态，如果任务暂停或当前线程状态是结束，直接返回（结束任务）
         // while status != end && claim slice != null            if exception, retry
-        Long sliceIndex = claimSlice();
-        while (sliceIndex != null && !(threadMap.get(Thread.currentThread().getId()) == ThreadStatus.STOPPED)) {
+        Long sliceIndex;
+        while ((sliceIndex = claimSlice()) != null) {
+            if (threadMap.get(Thread.currentThread().getId()) == ThreadStatus.STOPPED) {
+                LOGGER.info("线程被中断");
+                return;
+            }
             long endIndex = (currentSlice.get() == sliceNum - 1) ? totalFileSize - 1 : sliceIndex + sliceSize - 1;
             //构建Okhttp请求，并设置Range请求头
             Request request = new Request.Builder().url(fileUrl).addHeader("Range", "bytes=" + sliceIndex + "-" + endIndex).build();
@@ -79,13 +85,18 @@ public class DownloadTask implements Runnable {
                         throw new IOException("Empty response body");
                     }
                     InputStream inputStream = body.byteStream();
-                    if (progressFile.exists()) {//断点续传
-                        BufferedReader reader = new BufferedReader(new FileReader(progressFile));
-                        String line = reader.readLine();
-                        if (line != null){
-                            bytesDownloaded = new AtomicLong(Long.parseLong(line));
-                        }
-                    }
+//                    if (progressFile.exists()) {//断点续传
+//                        synchronized (progressFile){
+//                            try ( BufferedReader reader = new BufferedReader(new FileReader(progressFile))){
+//                                String line = reader.readLine();
+//                                if (line != null) {
+//                                    bytesDownloaded.set(Long.parseLong(line));
+//                                }
+//                            }catch (IOException e){
+//                                LOGGER.error("读取临时文件失败",e);
+//                            }
+//                        }
+//                    }
                     RandomAccessFile raf = new RandomAccessFile(task.getDownloadPath(), "rw");//随机访问文件 将下载的数据写入到目标文件的特定位置
                     raf.seek(sliceIndex);
                     //读取并写入数据
@@ -96,7 +107,7 @@ public class DownloadTask implements Runnable {
                         //检查线程是否被中断
                         if (Thread.currentThread().isInterrupted() || threadMap.get(Thread.currentThread().getId()) == ThreadStatus.STOPPED) {
                             LOGGER.info("线程被中断");
-                            break;
+                            return;
                         }
                         //控制下载速度
                         rateLimiter.acquire(bytesRead);//请求下载所需的令牌
@@ -136,47 +147,51 @@ public class DownloadTask implements Runnable {
                     //分片下载完成 更新currentSlice和数据库
                     currentSlice.incrementAndGet();
                     task.setCurrentSlice(currentSlice.get());
-                   // taskDAO.updateById(PowerConverter.convert(task, TaskDO.class));
+                    // taskDAO.updateById(PowerConverter.convert(task, TaskDO.class));
                     sliceMap.put(sliceIndex, SliceStatus.DOWNLOADED);
                     // todo 把下载完的分片写入临时文件 防止下载失败时需要重新下载整个文件
                     BufferedWriter writer = new BufferedWriter(new FileWriter(progressFile));
-                        writer.write(String.valueOf(bytesDownloaded.get()));
+                    writer.write(String.valueOf(bytesDownloaded.get()));
                     for (Map.Entry<Long, SliceStatus> entry : sliceMap.entrySet()) {
                         writer.write(entry.getKey() + ":" + entry.getValue() + "\n");
                     }
                     writer.close();
-                    sliceIndex = claimSlice();
+                    break;
+                    //sliceIndex = claimSlice();
                 } catch (IOException e) {
                     retryCount++;
                     LOGGER.warn("下载失败，正在重试第" + retryCount + "次");
-                    if (retryCount == MAX_RETRY_COUNT){
+                    if (retryCount == MAX_RETRY_COUNT) {
                         LOGGER.error("分片下载失败，重试次数已达上限");
                         sliceMap.put(sliceIndex, SliceStatus.WAITING);
+                        break;
                     }
-                    synchronized (lock) {
-                        if (!isEmitterCompleted.get()) {
-                            if (e instanceof InterruptedIOException) {//如果是cancel 则不抛出异常
-                                LOGGER.info("下载任务被取消:" + e.getMessage());
-                                Thread.currentThread().interrupt();
-                            } else {
-                                LOGGER.error("下载失败: " + e.getMessage(), e);
-                                emitter.completeWithError(e);
-                                isEmitterCompleted.set(true);
-                            }
-                        }
-                    }
-                    if (!(e instanceof InterruptedIOException)) {
-                        throw new RuntimeException("下载失败", e);
-                    }
+//                    synchronized (lock) {
+//                        if (!isEmitterCompleted.get()) {
+//                            if (e instanceof InterruptedIOException) {//如果是cancel 则不抛出异常
+//                                LOGGER.info("下载任务被取消:" + e.getMessage());
+//                                Thread.currentThread().interrupt();
+//                            } else {
+//                                LOGGER.error("下载失败: " + e.getMessage(), e);
+//                                emitter.completeWithError(e);
+//                                isEmitterCompleted.set(true);
+//                            }
+//                        }
+//                    }
+//                    if (!(e instanceof InterruptedIOException)) {
+//                        throw new RuntimeException("下载失败", e);
+//                    }
                 }
             }
         }
     }
+
     private synchronized Long claimSlice() {//确保分片的唯一认领
         for (Map.Entry<Long, SliceStatus> statusEntry : sliceMap.entrySet()) {
             if (statusEntry.getValue() == SliceStatus.WAITING) {
-                statusEntry.setValue(SliceStatus.DOWNLOADING);
-                return statusEntry.getKey();
+                if (sliceMap.replace(statusEntry.getKey(), SliceStatus.WAITING, SliceStatus.DOWNLOADING)) {
+                    return statusEntry.getKey();
+                }
             }
         }
         return null;//没有未下载的分片
