@@ -61,103 +61,95 @@ public class DownloadTask implements Runnable {
     //任务逻辑：下载任务 计算剩余时间 下载进度 以及下载速度
     @Override
     public void run() {
-        // todo 查询当前线程状态，如果任务暂停或当前线程状态是结束，直接返回（结束任务）
-        // while status != end && claim slice != null            if exception, retry
+        // 读取 progressFile 以恢复进度
+        if (progressFile.exists()) {
+            synchronized (progressFile) {
+                try (BufferedReader reader = new BufferedReader(new FileReader(progressFile))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        String[] parts = line.split(":");
+                        long sliceIndex = Long.parseLong(parts[0]);
+                        SliceStatus status = SliceStatus.valueOf(parts[1]);
+                        sliceMap.put(sliceIndex, status);
+                        if (status == SliceStatus.DOWNLOADED) {
+                            bytesDownloaded.addAndGet(sliceSize);  // 恢复已下载的字节数
+                        }
+                    }
+                } catch (IOException e) {
+                    LOGGER.error("读取进度文件失败", e);
+                }
+            }
+        }
+
         Long sliceIndex;
         while ((sliceIndex = claimSlice()) != null) {
+            // 检查线程状态
             if (threadMap.get(Thread.currentThread().getId()) == ThreadStatus.STOPPED) {
                 LOGGER.info("线程被中断");
                 return;
             }
             long endIndex = (currentSlice.get() == sliceNum - 1) ? totalFileSize - 1 : sliceIndex + sliceSize - 1;
-            //构建Okhttp请求，并设置Range请求头
+
+            // 构建 OkHttp 请求，并设置 Range 请求头
             Request request = new Request.Builder().url(fileUrl).addHeader("Range", "bytes=" + sliceIndex + "-" + endIndex).build();
-            //发送请求并获取响应
             int retryCount = 0;
             while (retryCount < MAX_RETRY_COUNT) {
                 try (Response response = client.newCall(request).execute()) {
                     if (!response.isSuccessful()) {
-                        throw new IOException("Failed to download file:" + response);
+                        throw new IOException("下载文件失败：" + response);
                     }
-                    //获取响应体的输入流
                     ResponseBody body = response.body();
                     if (body == null) {
-                        throw new IOException("Empty response body");
+                        throw new IOException("空响应体");
                     }
                     InputStream inputStream = body.byteStream();
-//                    if (progressFile.exists()) {//断点续传
-//                        synchronized (progressFile){
-//                            try ( BufferedReader reader = new BufferedReader(new FileReader(progressFile))){
-//                                String line = reader.readLine();
-//                                if (line != null) {
-//                                    bytesDownloaded.set(Long.parseLong(line));
-//                                }
-//                            }catch (IOException e){
-//                                LOGGER.error("读取临时文件失败",e);
-//                            }
-//                        }
-//                    }
-                    RandomAccessFile raf = new RandomAccessFile(task.getDownloadPath(), "rw");//随机访问文件 将下载的数据写入到目标文件的特定位置
+                    RandomAccessFile raf = new RandomAccessFile(task.getDownloadPath(), "rw");
                     raf.seek(sliceIndex);
-                    //读取并写入数据
+
+                    // 读取并写入数据
                     byte[] buffer = new byte[4096];
                     int bytesRead;
-                    long startTime = System.currentTimeMillis();//开始时间
+                    long startTime = System.currentTimeMillis();
                     while ((bytesRead = inputStream.read(buffer)) != -1) {
-                        //检查线程是否被中断
+                        // 检查线程是否被中断
                         if (Thread.currentThread().isInterrupted() || threadMap.get(Thread.currentThread().getId()) == ThreadStatus.STOPPED) {
                             LOGGER.info("线程被中断");
+                            saveProgress();  // 保存进度
                             return;
                         }
-                        //控制下载速度
-                        rateLimiter.acquire(bytesRead);//请求下载所需的令牌
+                        rateLimiter.acquire(bytesRead);
                         bytesDownloaded.addAndGet(bytesRead);
                         raf.write(buffer, 0, bytesRead);
-                        //计算下载速度
-                        long currentTime = System.currentTimeMillis();
-                        long elapsedTime = currentTime - startTime;
-                        double downloadSpeed = bytesDownloaded.get() / (elapsedTime / 1000.0);
-                        task.setDownloadSpeed(downloadSpeed / 1024);//单位KB/s
-                        //计算下载进度
-                        double progress = (double) bytesDownloaded.get() / totalFileSize * 100;
-                        task.setDownloadProgress((int) (progress));
-                        //计算剩余时间
-                        long remainingBytes = totalFileSize - bytesDownloaded.get();
-                        double remainingTime = remainingBytes / downloadSpeed;//剩余时间 单位s
-                        task.setDownloadRemainingTime((long) remainingTime);
-                        synchronized (lock) {//同步对emitter的访问，确保多线程安全
+
+                        // 更新下载进度、速度、剩余时间等
+                        DownloadProgress downloadProgress = updateDownloadMetrics(startTime);
+
+                        synchronized (lock) {
                             if (!isEmitterCompleted.get()) {
-                                LOGGER.info(String.format("下载进度：%d%%, 下载速度：%.2fKB/s, 剩余时间：%.2f秒,已经下载的文件大小：%dKB\n", (int) progress, downloadSpeed / 1024, remainingTime, bytesDownloaded.get() / 1024));
-                                emitter.send(new DownloadProgress((int) progress, downloadSpeed / 1024, (long) remainingTime, bytesDownloaded.get()));
+                                emitter.send(downloadProgress);
                             }
                         }
                     }
+
                     synchronized (lock) {
-                        if (!isEmitterCompleted.get()) {
-                            if (currentSlice.get() == sliceNum) {//整个文件全部下载完成
-                                emitter.complete();
-                                isEmitterCompleted.set(true);
-                            }
+                        if (!isEmitterCompleted.get() && currentSlice.get() == sliceNum) {
+                            emitter.complete();
+                            isEmitterCompleted.set(true);
                         }
                     }
-                    //关闭流
+
                     raf.close();
                     inputStream.close();
-                    LOGGER.info("索引为 " + currentSlice + " 的切片下载完成,该切片字节范围为：" + sliceIndex + " - " + endIndex);
-                    //分片下载完成 更新currentSlice和数据库
+
+                    // 分片下载完成，更新 currentSlice 和数据库
                     currentSlice.incrementAndGet();
                     task.setCurrentSlice(currentSlice.get());
-                    // taskDAO.updateById(PowerConverter.convert(task, TaskDO.class));
                     sliceMap.put(sliceIndex, SliceStatus.DOWNLOADED);
-                    // todo 把下载完的分片写入临时文件 防止下载失败时需要重新下载整个文件
-                    BufferedWriter writer = new BufferedWriter(new FileWriter(progressFile));
-                    writer.write(String.valueOf(bytesDownloaded.get()));
-                    for (Map.Entry<Long, SliceStatus> entry : sliceMap.entrySet()) {
-                        writer.write(entry.getKey() + ":" + entry.getValue() + "\n");
-                    }
-                    writer.close();
+
+                    // 下载完成后，保存进度
+                    saveProgress();
+                    LOGGER.info("索引为 " + currentSlice + " 的切片下载完成, 该切片字节范围为：" + sliceIndex + " - " + endIndex);
                     break;
-                    //sliceIndex = claimSlice();
                 } catch (IOException e) {
                     retryCount++;
                     LOGGER.warn("下载失败，正在重试第" + retryCount + "次");
@@ -166,26 +158,35 @@ public class DownloadTask implements Runnable {
                         sliceMap.put(sliceIndex, SliceStatus.WAITING);
                         break;
                     }
-//                    synchronized (lock) {
-//                        if (!isEmitterCompleted.get()) {
-//                            if (e instanceof InterruptedIOException) {//如果是cancel 则不抛出异常
-//                                LOGGER.info("下载任务被取消:" + e.getMessage());
-//                                Thread.currentThread().interrupt();
-//                            } else {
-//                                LOGGER.error("下载失败: " + e.getMessage(), e);
-//                                emitter.completeWithError(e);
-//                                isEmitterCompleted.set(true);
-//                            }
-//                        }
-//                    }
-//                    if (!(e instanceof InterruptedIOException)) {
-//                        throw new RuntimeException("下载失败", e);
-//                    }
                 }
             }
         }
     }
-
+    private void saveProgress() {
+        // 保存当前进度到 progressFile
+        synchronized (progressFile) {
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(progressFile))) {
+                writer.write(String.valueOf(bytesDownloaded.get()));
+                for (Map.Entry<Long, SliceStatus> entry : sliceMap.entrySet()) {
+                    writer.write(entry.getKey() + ":" + entry.getValue() + "\n");
+                }
+            } catch (IOException e) {
+                LOGGER.error("写入进度文件失败", e);
+            }
+        }
+    }
+    private DownloadProgress updateDownloadMetrics(long startTime) {
+        long currentTime = System.currentTimeMillis();
+        long elapsedTime = currentTime - startTime;
+        double downloadSpeed = bytesDownloaded.get() / (elapsedTime / 1000.0);
+        task.setDownloadSpeed(downloadSpeed / 1024); // 单位 KB/s
+        double progress = (double) bytesDownloaded.get() / totalFileSize * 100;
+        task.setDownloadProgress((int) progress);
+        long remainingBytes = totalFileSize - bytesDownloaded.get();
+        double remainingTime = remainingBytes / downloadSpeed;  // 单位秒
+        task.setDownloadRemainingTime((long) remainingTime);
+        return new DownloadProgress((int) progress, downloadSpeed / 1024, (long) remainingTime, bytesDownloaded.get());
+    }
     private synchronized Long claimSlice() {//确保分片的唯一认领
         for (Map.Entry<Long, SliceStatus> statusEntry : sliceMap.entrySet()) {
             if (statusEntry.getValue() == SliceStatus.WAITING) {
