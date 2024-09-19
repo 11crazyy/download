@@ -29,9 +29,8 @@ public class DownloadTask implements Runnable {
     private AtomicLong bytesDownloaded;
     private final Long totalFileSize;
     private final Task task;//计算剩余时间等属性
-    private final AtomicInteger currentSlice;
     private final TaskDAO taskDAO;
-    private final Map<Long, SliceStatus> sliceMap;
+    private final Map<Integer, SliceStatus> sliceMap;
     private final Map<Long, ThreadStatus> threadMap;
     private final RateLimiter rateLimiter;
     private final SseEmitter emitter;
@@ -42,12 +41,11 @@ public class DownloadTask implements Runnable {
     private final Object lock = new Object();//锁 用于同步访问emitter和标志位
     private final AtomicBoolean isEmitterCompleted = new AtomicBoolean(false);//标志位 用于判断emitter是否已经完成
 
-    public DownloadTask(Task task, AtomicLong bytesDownloaded, Long totalFileSize, AtomicInteger currentSlice, TaskDAO taskDAO, RateLimiter rateLimiter, SseEmitter emitter, int sliceNum, Map<Long, SliceStatus> sliceMap, int sliceSize, File progressFile, Map<Long, ThreadStatus> threadMap) {
+    public DownloadTask(Task task, AtomicLong bytesDownloaded, Long totalFileSize, TaskDAO taskDAO, RateLimiter rateLimiter, SseEmitter emitter, int sliceNum, Map<Integer, SliceStatus> sliceMap, int sliceSize, File progressFile, Map<Long, ThreadStatus> threadMap) {
         this.task = task;
         this.fileUrl = task.getDownloadLink();
         this.bytesDownloaded = bytesDownloaded;
         this.totalFileSize = totalFileSize;
-        this.currentSlice = currentSlice;
         this.taskDAO = taskDAO;
         this.rateLimiter = rateLimiter;
         this.emitter = emitter;
@@ -68,7 +66,7 @@ public class DownloadTask implements Runnable {
                     String line;
                     while ((line = reader.readLine()) != null) {
                         String[] parts = line.split(":");
-                        long sliceIndex = Long.parseLong(parts[0]);
+                        Integer sliceIndex = Integer.parseInt(parts[0]);
                         SliceStatus status = SliceStatus.valueOf(parts[1]);
                         sliceMap.put(sliceIndex, status);
                         if (status == SliceStatus.DOWNLOADED) {
@@ -80,18 +78,19 @@ public class DownloadTask implements Runnable {
                 }
             }
         }
-
-        Long sliceIndex;
+        Integer sliceIndex;//正在下载的分片的索引
         while ((sliceIndex = claimSlice()) != null) {
             // 检查线程状态
-            if (threadMap.get(Thread.currentThread().getId()) == ThreadStatus.STOPPED) {
-                LOGGER.info("线程被中断");
-                return;
+            synchronized (threadMap) {
+                if (threadMap.get(Thread.currentThread().getId()) == ThreadStatus.STOPPED) {
+                    LOGGER.info("线程被中断");
+                    saveProgress();
+                    return;
+                }
             }
-            long endIndex = (currentSlice.get() == sliceNum - 1) ? totalFileSize - 1 : sliceIndex + sliceSize - 1;
-
+            long endIndex = (sliceIndex == sliceNum - 1) ? totalFileSize - 1 : (long) (sliceIndex + 1) * sliceSize - 1;//如果索引是sliceNum-1
             // 构建 OkHttp 请求，并设置 Range 请求头
-            Request request = new Request.Builder().url(fileUrl).addHeader("Range", "bytes=" + sliceIndex + "-" + endIndex).build();
+            Request request = new Request.Builder().url(fileUrl).addHeader("Range", "bytes=" + sliceIndex * sliceSize + "-" + endIndex).build();
             int retryCount = 0;
             while (retryCount < MAX_RETRY_COUNT) {
                 try (Response response = client.newCall(request).execute()) {
@@ -105,50 +104,41 @@ public class DownloadTask implements Runnable {
                     InputStream inputStream = body.byteStream();
                     RandomAccessFile raf = new RandomAccessFile(task.getDownloadPath(), "rw");
                     raf.seek(sliceIndex);
-
                     // 读取并写入数据
                     byte[] buffer = new byte[4096];
                     int bytesRead;
                     long startTime = System.currentTimeMillis();
                     while ((bytesRead = inputStream.read(buffer)) != -1) {
-                        // 检查线程是否被中断
-                        if (Thread.currentThread().isInterrupted() || threadMap.get(Thread.currentThread().getId()) == ThreadStatus.STOPPED) {
-                            LOGGER.info("线程被中断");
-                            saveProgress();  // 保存进度
-                            return;
+                        synchronized (threadMap) {
+                            if (Thread.currentThread().isInterrupted() || threadMap.get(Thread.currentThread().getId()) == ThreadStatus.STOPPED) {
+                                LOGGER.info("线程被中断");
+                                saveProgress();  // 保存进度
+                                return;
+                            }
                         }
                         rateLimiter.acquire(bytesRead);
                         bytesDownloaded.addAndGet(bytesRead);
                         raf.write(buffer, 0, bytesRead);
-
                         // 更新下载进度、速度、剩余时间等
                         DownloadProgress downloadProgress = updateDownloadMetrics(startTime);
-
                         synchronized (lock) {
                             if (!isEmitterCompleted.get()) {
                                 emitter.send(downloadProgress);
                             }
                         }
                     }
-
                     synchronized (lock) {
-                        if (!isEmitterCompleted.get() && currentSlice.get() == sliceNum) {
+                        if (!isEmitterCompleted.get() && sliceIndex == sliceNum) {
                             emitter.complete();
                             isEmitterCompleted.set(true);
                         }
                     }
-
                     raf.close();
                     inputStream.close();
-
-                    // 分片下载完成，更新 currentSlice 和数据库
-                    currentSlice.incrementAndGet();
-                    task.setCurrentSlice(currentSlice.get());
                     sliceMap.put(sliceIndex, SliceStatus.DOWNLOADED);
-
                     // 下载完成后，保存进度
                     saveProgress();
-                    LOGGER.info("索引为 " + currentSlice + " 的切片下载完成, 该切片字节范围为：" + sliceIndex + " - " + endIndex);
+                    LOGGER.info("索引为 " + sliceIndex + " 的切片下载完成, 该切片字节范围为：" + sliceIndex * sliceSize + " - " + endIndex);
                     break;
                 } catch (IOException e) {
                     retryCount++;
@@ -162,12 +152,13 @@ public class DownloadTask implements Runnable {
             }
         }
     }
+
     private void saveProgress() {
         // 保存当前进度到 progressFile
         synchronized (progressFile) {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(progressFile))) {
                 writer.write(String.valueOf(bytesDownloaded.get()));
-                for (Map.Entry<Long, SliceStatus> entry : sliceMap.entrySet()) {
+                for (Map.Entry<Integer, SliceStatus> entry : sliceMap.entrySet()) {
                     writer.write(entry.getKey() + ":" + entry.getValue() + "\n");
                 }
             } catch (IOException e) {
@@ -175,6 +166,7 @@ public class DownloadTask implements Runnable {
             }
         }
     }
+
     private DownloadProgress updateDownloadMetrics(long startTime) {
         long currentTime = System.currentTimeMillis();
         long elapsedTime = currentTime - startTime;
@@ -187,8 +179,9 @@ public class DownloadTask implements Runnable {
         task.setDownloadRemainingTime((long) remainingTime);
         return new DownloadProgress((int) progress, downloadSpeed / 1024, (long) remainingTime, bytesDownloaded.get());
     }
-    private synchronized Long claimSlice() {//确保分片的唯一认领
-        for (Map.Entry<Long, SliceStatus> statusEntry : sliceMap.entrySet()) {
+
+    private synchronized Integer claimSlice() {//确保分片的唯一认领
+        for (Map.Entry<Integer, SliceStatus> statusEntry : sliceMap.entrySet()) {
             if (statusEntry.getValue() == SliceStatus.WAITING) {
                 if (sliceMap.replace(statusEntry.getKey(), SliceStatus.WAITING, SliceStatus.DOWNLOADING)) {
                     return statusEntry.getKey();

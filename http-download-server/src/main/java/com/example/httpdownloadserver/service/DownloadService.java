@@ -4,6 +4,7 @@ import com.example.httpdownloadserver.model.Task;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public interface DownloadService {
     /**
@@ -12,7 +13,7 @@ public interface DownloadService {
      * @param task
      * @return
      */
-    void download(Task task, int threadNum, boolean isPaused) throws IOException;
+    void download(Task task, int threadNum, AtomicBoolean isPaused) throws IOException;
 
     /**
      * 根据id获得SseEmitter

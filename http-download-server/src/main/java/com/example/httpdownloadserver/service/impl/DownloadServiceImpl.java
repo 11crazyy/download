@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -36,7 +37,7 @@ public class DownloadServiceImpl implements DownloadService {
     private static final OkHttpClient client = new OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).writeTimeout(10, TimeUnit.SECONDS).build();
 
     @Override
-    public void download(Task task, int threadNum, boolean isPaused) throws IOException {
+    public void download(Task task, int threadNum, AtomicBoolean isPaused) throws IOException {
         LOGGER.info("开始下载任务");
         SseEmitter emitter = new SseEmitter();
         emitters.put(task.getId().toString(), emitter);
@@ -67,25 +68,26 @@ public class DownloadServiceImpl implements DownloadService {
         String speed = settingsDAO.selectByName("downloadSpeed").getSettingValue();//MB/s
         RateLimiter rateLimiter = RateLimiter.create(Double.parseDouble(speed) * 1024 * 1024);//每秒不超过指定的下载速度对应的字节数
         AtomicLong downloaded = new AtomicLong(0);
-        AtomicInteger currentSlice = new AtomicInteger(0);
         ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(threadNum);
-        Map<Long, SliceStatus> sliceMap = new ConcurrentHashMap<>();
+        Map<Integer, SliceStatus> sliceMap = new ConcurrentHashMap<>();
         for (int i = 0; i < sliceNum; i++) {
-            long startIndex = (long) i * sliceSize;
-            sliceMap.put(startIndex, SliceStatus.WAITING);
+            sliceMap.put(i, SliceStatus.WAITING);
         }
         //创建一个用于写文件下载分片下载进度的临时文件
         // todo 调度的时候如果需要减少线程，则随机挑选线程，将状态直接改为结束
         File progressFile = new File(task.getDownloadPath() + ".tmp");
         progressFile.createNewFile();
         for (int i = 0; i < threadNum; i++) {
-            if (isPaused) {
-                threadMap.put(Thread.currentThread().getId(), ThreadStatus.STOPPED);//线程状态：暂停
+            //isPaused为true时，把线程池中所有线程状态都修改为暂停以实现暂停下载
+            if (isPaused.get()) {
+                for (Map.Entry<Long, ThreadStatus> entry : threadMap.entrySet()) {
+                    entry.setValue(ThreadStatus.STOPPED);
+                }
                 LOGGER.info("下载任务暂停");
-                break;
+                //break;
             }
             threadMap.put(Thread.currentThread().getId(), ThreadStatus.RUNNING);//线程状态：运行
-            executor.submit(new DownloadTask(task, downloaded, fileSize, currentSlice,taskDAO, rateLimiter, emitter, sliceNum, sliceMap, sliceSize, progressFile, threadMap));//线程逻辑：负责任务调度
+            executor.submit(new DownloadTask(task, downloaded, fileSize, taskDAO, rateLimiter, emitter, sliceNum, sliceMap, sliceSize, progressFile, threadMap));//线程逻辑：负责任务调度
         }
         executor.shutdown();
         try {
@@ -96,6 +98,7 @@ public class DownloadServiceImpl implements DownloadService {
             executor.shutdownNow();//尝试停止所有正在执行的任务 返回尚未执行的任务列表 会终端所有正在等待的任务
         }
     }
+
     private static String getString(Task task, String directoryPath) {
         // 获取原始文件名
         String fileName = task.getDownloadLink().substring(task.getDownloadLink().lastIndexOf("/") + 1);

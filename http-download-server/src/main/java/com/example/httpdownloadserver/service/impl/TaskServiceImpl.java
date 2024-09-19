@@ -28,8 +28,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Service
 public class TaskServiceImpl implements TaskService {
     private static final Logger LOGGER = LogManager.getLogger(TaskServiceImpl.class);
-    private final ConcurrentHashMap<Long, AtomicBoolean> taskPaused = new ConcurrentHashMap<>();
-    private final AtomicBoolean isPaused = new AtomicBoolean(false);
     @Autowired
     private DownloadService downloadService;
     @Autowired
@@ -39,6 +37,7 @@ public class TaskServiceImpl implements TaskService {
     private final ExecutorService executor = Executors.newFixedThreadPool(4);//任务下载线程池，最多同时下载4个文件
     private final BlockingDeque<Task> taskDeque = new LinkedBlockingDeque<>();//线程安全，支持阻塞操作，适合生产者-消费者模式
     private final ConcurrentHashMap<Long, Future<?>> taskFutures = new ConcurrentHashMap<>();//控制接口 更方便控制任务的暂停、继续、取消
+    private final ConcurrentHashMap<Long, AtomicBoolean> taskPaused = new ConcurrentHashMap<>();
 
     @Override
     public Task submitDownload(String url) {
@@ -76,10 +75,7 @@ public class TaskServiceImpl implements TaskService {
             if (task != null) {
                 Future<?> future = executor.submit(() -> {
                     try {
-//                        if (pauseDownload(task.getId())) {
-//                            downloadService.download(task, getThreadCount(task.getId()),true);
-//                        }
-                        downloadService.download(task, task.getDownloadThread(), false);
+                        downloadService.download(task, task.getDownloadThread(), taskPaused.get(task.getId()));
                     } catch (IOException e) {
                         LOGGER.error("request error", e);
                     }
@@ -89,6 +85,7 @@ public class TaskServiceImpl implements TaskService {
             }
         }
     }
+
     @Override
     public boolean restartDownload(Long id) {
         //重新开始下载，先取消下载，再重新提交下载任务
@@ -108,27 +105,15 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public boolean pauseDownload(Long id) {
-        //        if (paused != null){
-//            isPaused.set(true);
-//            return true;
-//        }
-//        return false;
         taskPaused.computeIfAbsent(id, k -> new AtomicBoolean(false));
-        taskPaused.get(id).set(true);
+        taskPaused.put(id, new AtomicBoolean(true));
         return true;
     }
 
     @Override
     public boolean resumeDownload(Long id) {
-        AtomicBoolean paused = taskPaused.get(id);
-        if (paused != null) {
-            paused.set(false);
-            synchronized (paused) {
-                isPaused.notifyAll();
-            }
-            return true;
-        }
-        return false;
+        taskPaused.put(id, new AtomicBoolean(false));
+        return true;
     }
 
     @Override
