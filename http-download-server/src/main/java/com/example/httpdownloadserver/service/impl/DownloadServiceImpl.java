@@ -20,9 +20,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Service
@@ -31,6 +32,8 @@ public class DownloadServiceImpl implements DownloadService {
     private SettingsDAO settingsDAO;
     @Autowired
     private TaskDAO taskDAO;
+    private static final ThreadPoolExecutor executor = new ThreadPoolExecutor(5, 20, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
+
     private static final Logger LOGGER = LogManager.getLogger(DownloadServiceImpl.class);
     private static final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
     private static final Map<Long, ThreadStatus> threadMap = new HashMap<>();
@@ -68,7 +71,6 @@ public class DownloadServiceImpl implements DownloadService {
         String speed = settingsDAO.selectByName("downloadSpeed").getSettingValue();//MB/s
         RateLimiter rateLimiter = RateLimiter.create(Double.parseDouble(speed) * 1024 * 1024);//每秒不超过指定的下载速度对应的字节数
         AtomicLong downloaded = new AtomicLong(0);
-        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(threadNum);
         Map<Integer, SliceStatus> sliceMap = new ConcurrentHashMap<>();
         for (int i = 0; i < sliceNum; i++) {
             sliceMap.put(i, SliceStatus.WAITING);
@@ -78,9 +80,7 @@ public class DownloadServiceImpl implements DownloadService {
         File progressFile = new File(task.getDownloadPath() + ".tmp");
         progressFile.createNewFile();
         for (int i = 0; i < threadNum; i++) {
-            //isPaused为true时，把线程池中所有线程状态都修改为暂停以实现暂停下载
-            threadMap.put(Thread.currentThread().getId(), ThreadStatus.RUNNING);//线程状态：运行
-            executor.submit(new DownloadTask(task, downloaded, fileSize, taskDAO, rateLimiter, emitter, sliceNum, sliceMap, sliceSize, progressFile, threadMap));//线程逻辑：负责任务调度
+            executor.submit(new DownloadTask(task, downloaded, fileSize, rateLimiter, emitter, sliceNum, sliceMap, sliceSize, progressFile, threadMap));//线程逻辑：负责任务调度
         }
         executor.shutdown();
         try {
@@ -142,11 +142,6 @@ public class DownloadServiceImpl implements DownloadService {
 
     @Override
     public void resumeTask(Long taskId) {
-        for (Map.Entry<Long, ThreadStatus> entry : threadMap.entrySet()) {
-            if (entry.getValue() == ThreadStatus.STOPPED) {
-                threadMap.put(entry.getKey(), ThreadStatus.RUNNING);
-            }
-        }
     }
 
     public int sliceSize(Long fileSize) {

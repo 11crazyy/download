@@ -29,7 +29,6 @@ public class DownloadTask implements Runnable {
     private AtomicLong bytesDownloaded;
     private final Long totalFileSize;
     private final Task task;//计算剩余时间等属性
-    private final TaskDAO taskDAO;
     private final Map<Integer, SliceStatus> sliceMap;
     private final Map<Long, ThreadStatus> threadMap;
     private final RateLimiter rateLimiter;
@@ -41,12 +40,11 @@ public class DownloadTask implements Runnable {
     private final Object lock = new Object();//锁 用于同步访问emitter和标志位
     private final AtomicBoolean isEmitterCompleted = new AtomicBoolean(false);//标志位 用于判断emitter是否已经完成
 
-    public DownloadTask(Task task, AtomicLong bytesDownloaded, Long totalFileSize, TaskDAO taskDAO, RateLimiter rateLimiter, SseEmitter emitter, int sliceNum, Map<Integer, SliceStatus> sliceMap, int sliceSize, File progressFile, Map<Long, ThreadStatus> threadMap) {
+    public DownloadTask(Task task, AtomicLong bytesDownloaded, Long totalFileSize, RateLimiter rateLimiter, SseEmitter emitter, int sliceNum, Map<Integer, SliceStatus> sliceMap, int sliceSize, File progressFile, Map<Long, ThreadStatus> threadMap) {
         this.task = task;
         this.fileUrl = task.getDownloadLink();
         this.bytesDownloaded = bytesDownloaded;
         this.totalFileSize = totalFileSize;
-        this.taskDAO = taskDAO;
         this.rateLimiter = rateLimiter;
         this.emitter = emitter;
         this.threadMap = threadMap;
@@ -59,6 +57,8 @@ public class DownloadTask implements Runnable {
     //任务逻辑：下载任务 计算剩余时间 下载进度 以及下载速度
     @Override
     public void run() {
+        threadMap.put(Thread.currentThread().getId(), ThreadStatus.RUNNING);//线程状态：运行
+        // todo 移到resume方法中
         // 读取 progressFile 以恢复进度
         if (progressFile.exists()) {
             synchronized (progressFile) {
