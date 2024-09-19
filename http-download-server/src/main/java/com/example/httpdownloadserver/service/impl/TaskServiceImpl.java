@@ -37,7 +37,6 @@ public class TaskServiceImpl implements TaskService {
     private final ExecutorService executor = Executors.newFixedThreadPool(4);//任务下载线程池，最多同时下载4个文件
     private final BlockingDeque<Task> taskDeque = new LinkedBlockingDeque<>();//线程安全，支持阻塞操作，适合生产者-消费者模式
     private final ConcurrentHashMap<Long, Future<?>> taskFutures = new ConcurrentHashMap<>();//控制接口 更方便控制任务的暂停、继续、取消
-    private final ConcurrentHashMap<Long, AtomicBoolean> taskPaused = new ConcurrentHashMap<>();
 
     @Override
     public Task submitDownload(String url) {
@@ -62,7 +61,6 @@ public class TaskServiceImpl implements TaskService {
         //将任务信息存到下载队列中
         Task task = PowerConverter.convert(taskDO, Task.class);
         task.setStatus(TaskStatus.valueOf(taskDO.getStatus()));
-        taskPaused.put(task.getId(), new AtomicBoolean(false));
         taskDeque.offer(task);
         //启动任务处理，从队列中取出任务并启动下载过程
         processTasks();
@@ -75,7 +73,7 @@ public class TaskServiceImpl implements TaskService {
             if (task != null) {
                 Future<?> future = executor.submit(() -> {
                     try {
-                        downloadService.download(task, task.getDownloadThread(), taskPaused.get(task.getId()));
+                        downloadService.download(task, task.getDownloadThread());
                     } catch (IOException e) {
                         LOGGER.error("request error", e);
                     }
@@ -105,14 +103,13 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public boolean pauseDownload(Long id) {
-        taskPaused.computeIfAbsent(id, k -> new AtomicBoolean(false));
-        taskPaused.put(id, new AtomicBoolean(true));
+        downloadService.pauseTask(id);
         return true;
     }
 
     @Override
     public boolean resumeDownload(Long id) {
-        taskPaused.put(id, new AtomicBoolean(false));
+        downloadService.resumeTask(id);
         return true;
     }
 

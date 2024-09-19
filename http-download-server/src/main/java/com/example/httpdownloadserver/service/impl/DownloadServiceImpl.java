@@ -37,7 +37,7 @@ public class DownloadServiceImpl implements DownloadService {
     private static final OkHttpClient client = new OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).writeTimeout(10, TimeUnit.SECONDS).build();
 
     @Override
-    public void download(Task task, int threadNum, AtomicBoolean isPaused) throws IOException {
+    public void download(Task task, int threadNum) throws IOException {
         LOGGER.info("开始下载任务");
         SseEmitter emitter = new SseEmitter();
         emitters.put(task.getId().toString(), emitter);
@@ -79,13 +79,6 @@ public class DownloadServiceImpl implements DownloadService {
         progressFile.createNewFile();
         for (int i = 0; i < threadNum; i++) {
             //isPaused为true时，把线程池中所有线程状态都修改为暂停以实现暂停下载
-            if (isPaused.get()) {
-                for (Map.Entry<Long, ThreadStatus> entry : threadMap.entrySet()) {
-                    entry.setValue(ThreadStatus.STOPPED);
-                }
-                LOGGER.info("下载任务暂停");
-                //break;
-            }
             threadMap.put(Thread.currentThread().getId(), ThreadStatus.RUNNING);//线程状态：运行
             executor.submit(new DownloadTask(task, downloaded, fileSize, taskDAO, rateLimiter, emitter, sliceNum, sliceMap, sliceSize, progressFile, threadMap));//线程逻辑：负责任务调度
         }
@@ -136,6 +129,24 @@ public class DownloadServiceImpl implements DownloadService {
             return emitters.get(taskId);
         }
         return null;
+    }
+
+    @Override
+    public void pauseTask(Long taskId) {
+        for (Map.Entry<Long, ThreadStatus> entry : threadMap.entrySet()) {
+            if (entry.getValue() == ThreadStatus.RUNNING) {
+                threadMap.put(entry.getKey(), ThreadStatus.STOPPED);
+            }
+        }
+    }
+
+    @Override
+    public void resumeTask(Long taskId) {
+        for (Map.Entry<Long, ThreadStatus> entry : threadMap.entrySet()) {
+            if (entry.getValue() == ThreadStatus.STOPPED) {
+                threadMap.put(entry.getKey(), ThreadStatus.RUNNING);
+            }
+        }
     }
 
     public int sliceSize(Long fileSize) {

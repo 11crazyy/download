@@ -13,7 +13,7 @@ public interface DownloadService {
      * @param task
      * @return
      */
-    void download(Task task, int threadNum, AtomicBoolean isPaused) throws IOException;
+    void download(Task task, int threadNum) throws IOException;
 
     /**
      * 根据id获得SseEmitter
@@ -23,4 +23,7 @@ public interface DownloadService {
      */
 
     SseEmitter getEmitter(String taskId);
+    void pauseTask(Long taskId);
+
+    void resumeTask(Long taskId);
 }
