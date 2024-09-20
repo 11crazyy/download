@@ -11,10 +11,12 @@ public class TaskDO {
     private Double downloadSpeed;
     private Integer downloadProgress;
     private Long downloadRemainingTime;
-    private Integer downloadThread;
     private String downloadPath;
     private String downloadLink;
     private Integer currentSlice;
+    private Integer threadCount;
+    private Long contentLength;
+    private Integer shardSize;
     private Date gmtCreated;
     private Date gmtModified;
 }

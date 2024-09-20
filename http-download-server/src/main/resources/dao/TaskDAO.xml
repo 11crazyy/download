@@ -9,9 +9,11 @@
         <result column="download_progress" jdbcType="INTEGER" property="downloadProgress"/>
         <result column="download_remaining_time" jdbcType="INTEGER" property="downloadProgress"/>
         <result column="current_slice" jdbcType="INTEGER" property="currentSlice"/>
-        <result column="download_thread" jdbcType="INTEGER" property="downloadThread"/>
         <result column="download_path" jdbcType="VARCHAR" property="downloadPath"/>
         <result column="download_link" jdbcType="VARCHAR" property="downloadLink"/>
+        <result column="thread_count" jdbcType="INTEGER" property="threadCount" />
+        <result column="content_length" jdbcType="BIGINT" property="contentLength" />
+        <result column="shard_size" jdbcType="INTEGER" property="shardSize" />
         <result column="gmt_created" jdbcType="TIMESTAMP" property="gmtCreated"/>
         <result column="gmt_modified" jdbcType="TIMESTAMP" property="gmtModified"/>
     </resultMap>
@@ -21,17 +23,21 @@
                           download_progress,
                           download_remaining_time,
                           current_slice,
-                          download_thread,
                           download_path,
-                          download_link)
+                          download_link,
+                          thread_count,
+                          content_length,
+                          shard_size)
         values (#{status},
                 #{downloadSpeed},
                 #{downloadProgress},
                 #{downloadRemainingTime},
                 #{currentSlice},
-                #{downloadThread},
                 #{downloadPath},
-                #{downloadLink})
+                #{downloadLink},
+                #{threadCount},
+                #{contentLength},
+                #{shardSize})
     </insert>
     <delete id="deleteById" parameterType="java.lang.Long">
         delete
@@ -45,9 +51,11 @@
                download_progress,
                download_remaining_time,
                current_slice,
-               download_thread,
                download_path,
                download_link,
+               thread_count,
+               content_length,
+               shard_size,
                gmt_created,
                gmt_modified
         from task
@@ -60,9 +68,11 @@
                download_progress,
                download_remaining_time,
                current_slice,
-               download_thread,
                download_path,
                download_link,
+               thread_count,
+               content_length,
+               shard_size,
                gmt_created,
                gmt_modified
         from task
@@ -74,9 +84,11 @@
                download_progress,
                download_remaining_time,
                current_slice,
-               download_thread,
                download_path,
                download_link,
+               thread_count,
+               content_length,
+               shard_size,
                gmt_created,
                gmt_modified
         from task
@@ -92,11 +104,11 @@
     </delete>
     <update id="updateThreadById">
         update task
-        set download_thread = #{downloadThread}
+        set thread_count = #{downloadThread}
         where id = #{id}
     </update>
     <select id="getThreadById" parameterType="java.lang.Long" resultType="int">
-        select download_thread
+        select thread_count
         from task
         where id = #{id}
     </select>
@@ -107,7 +119,9 @@
             download_progress = #{downloadProgress},
             download_remaining_time = #{downloadRemainingTime},
             current_slice = #{currentSlice},
-            download_thread = #{downloadThread},
+            thread_count = #{threadCount},
+            content_length = #{contentLength},
+            shard_size = #{shardSize},
             download_path = #{downloadPath},
             download_link = #{downloadLink}
         where id = #{id}

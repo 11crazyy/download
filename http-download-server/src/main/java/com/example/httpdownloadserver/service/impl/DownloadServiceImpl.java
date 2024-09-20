@@ -24,6 +24,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -38,10 +39,9 @@ public class DownloadServiceImpl implements DownloadService {
     @Autowired
     private TaskDAO taskDAO;
     private static final ThreadPoolExecutor executor = new ThreadPoolExecutor(5, 20, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
-
     private static final Logger LOGGER = LogManager.getLogger(DownloadServiceImpl.class);
     private static final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
-    private static final Map<Long, ThreadStatus> threadMap = new HashMap<>();
+    private static final Map<Long, ThreadStatus> threadMap = new ConcurrentHashMap<>();
     private static final Map<Integer, SliceStatus> sliceMap = new ConcurrentHashMap<>();
     private static final AtomicLong downloaded = new AtomicLong(0);
     private static final OkHttpClient client = new OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).writeTimeout(10, TimeUnit.SECONDS).build();
@@ -85,20 +85,12 @@ public class DownloadServiceImpl implements DownloadService {
         }
         TaskDO taskDO = PowerConverter.convert(task, TaskDO.class);
         taskDO.setStatus(TaskStatus.PENDING.toString());
-        taskDAO.insert(taskDO);
+        taskDAO.updateById(taskDO);
         // todo 调度的时候如果需要减少线程，则随机挑选线程，将状态直接改为结束
         File progressFile = new File(task.getDownloadPath() + ".tmp");//记录进度的临时文件
         progressFile.createNewFile();
         for (int i = 0; i < threadNum; i++) {
             executor.submit(new DownloadTask(task, downloaded, fileSize, rateLimiter, emitter, sliceNum, sliceMap, sliceSize, progressFile, threadMap));//线程逻辑：负责任务调度
-        }
-        executor.shutdown();
-        try {
-            if (!executor.awaitTermination(10, TimeUnit.MINUTES)) {
-                executor.shutdown();//不再接收新任务 但会让已提交的任务继续执行 直到所有任务完成 新任务不再被接受
-            }
-        } catch (InterruptedException e) {
-            executor.shutdownNow();//尝试停止所有正在执行的任务 返回尚未执行的任务列表 会终端所有正在等待的任务
         }
     }
 
@@ -168,7 +160,6 @@ public class DownloadServiceImpl implements DownloadService {
                         sliceMap.put(sliceIndex, status);
                         if (status == SliceStatus.DOWNLOADED) {
                             downloaded.addAndGet(task.getShardSize());// 恢复已下载的字节数
-                            sliceMap.put(sliceIndex, SliceStatus.DOWNLOADING);
                         }
                     }
                 } catch (IOException e) {

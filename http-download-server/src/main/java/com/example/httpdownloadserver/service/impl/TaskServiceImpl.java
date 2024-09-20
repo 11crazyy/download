@@ -55,7 +55,7 @@ public class TaskServiceImpl implements TaskService {
         if (threadNum == null || threadNum.isEmpty()) {
             threadNum = "4";
         }
-        taskDO.setDownloadThread(Integer.parseInt(threadNum));
+        taskDO.setThreadCount(Integer.parseInt(threadNum));
         taskDO.setStatus(String.valueOf(TaskStatus.PENDING));
         taskDAO.insert(taskDO);
         //将任务信息存到下载队列中
@@ -73,7 +73,7 @@ public class TaskServiceImpl implements TaskService {
             if (task != null) {
                 Future<?> future = executor.submit(() -> {
                     try {
-                        downloadService.download(task, task.getDownloadThread());
+                        downloadService.download(task, task.getThreadCount());
                     } catch (IOException e) {
                         LOGGER.error("request error", e);
                     }

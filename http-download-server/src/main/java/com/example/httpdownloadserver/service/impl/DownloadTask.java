@@ -58,26 +58,6 @@ public class DownloadTask implements Runnable {
     @Override
     public void run() {
         threadMap.put(Thread.currentThread().getId(), ThreadStatus.RUNNING);//线程状态：运行
-        // todo 移到resume方法中
-        // 读取 progressFile 以恢复进度
-//        if (progressFile.exists()) {
-//            synchronized (progressFile) {
-//                try (BufferedReader reader = new BufferedReader(new FileReader(progressFile))) {
-//                    String line;
-//                    while ((line = reader.readLine()) != null) {
-//                        String[] parts = line.split(":");
-//                        Integer sliceIndex = Integer.parseInt(parts[0]);
-//                        SliceStatus status = SliceStatus.valueOf(parts[1]);
-//                        sliceMap.put(sliceIndex, status);
-//                        if (status == SliceStatus.DOWNLOADED) {
-//                            bytesDownloaded.addAndGet(sliceSize);  // 恢复已下载的字节数
-//                        }
-//                    }
-//                } catch (IOException e) {
-//                    LOGGER.error("读取进度文件失败", e);
-//                }
-//            }
-//        }
         Integer sliceIndex;//正在下载的分片的索引
         while ((sliceIndex = claimSlice()) != null) {
             // 检查线程状态
@@ -85,7 +65,7 @@ public class DownloadTask implements Runnable {
                 if (threadMap.get(Thread.currentThread().getId()) == ThreadStatus.STOPPED) {
                     LOGGER.info("线程被中断");
                     saveProgress();
-                    return;
+                    break;
                 }
             }
             long endIndex = (sliceIndex == sliceNum - 1) ? totalFileSize - 1 : (long) (sliceIndex + 1) * sliceSize - 1;//如果索引是sliceNum-1
@@ -112,6 +92,7 @@ public class DownloadTask implements Runnable {
                         synchronized (threadMap) {
                             if (Thread.currentThread().isInterrupted() || threadMap.get(Thread.currentThread().getId()) == ThreadStatus.STOPPED) {
                                 LOGGER.info("线程被中断");
+
                                 saveProgress();  // 保存进度
                                 return;
                             }
@@ -155,7 +136,9 @@ public class DownloadTask implements Runnable {
                 }
             }
         }
+        threadMap.remove(Thread.currentThread().getId());
     }
+
     private void saveProgress() {
         // 保存当前进度到 progressFile
         synchronized (progressFile) {
@@ -169,6 +152,7 @@ public class DownloadTask implements Runnable {
             }
         }
     }
+
     private DownloadProgress updateDownloadMetrics(long startTime) {
         long currentTime = System.currentTimeMillis();
         long elapsedTime = currentTime - startTime;
@@ -181,6 +165,7 @@ public class DownloadTask implements Runnable {
         task.setDownloadRemainingTime((long) remainingTime);
         return new DownloadProgress((int) progress, downloadSpeed / 1024, (long) remainingTime, bytesDownloaded.get());
     }
+
     private synchronized Integer claimSlice() {//确保分片的唯一认领
         for (Map.Entry<Integer, SliceStatus> statusEntry : sliceMap.entrySet()) {
             if (statusEntry.getValue() == SliceStatus.WAITING) {
@@ -189,7 +174,7 @@ public class DownloadTask implements Runnable {
                 }
             }
         }
-        return null;//没有未下载的分片
+        return null;
     }
 }
 
