@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class DownloadTask implements Runnable {
     private static final int MAX_RETRY_COUNT = 3;
@@ -59,7 +60,7 @@ public class DownloadTask implements Runnable {
     public void run() {
         threadMap.put(Thread.currentThread().getId(), ThreadStatus.RUNNING);//线程状态：运行
         Integer sliceIndex;//正在下载的分片的索引
-        while ((sliceIndex = claimSlice()) != null) {
+        while (true) {
             // 检查线程状态
             synchronized (threadMap) {
                 if (threadMap.get(Thread.currentThread().getId()) == ThreadStatus.STOPPED) {
@@ -67,6 +68,10 @@ public class DownloadTask implements Runnable {
                     saveProgress();
                     break;
                 }
+            }
+            sliceIndex = claimSlice();
+            if (sliceIndex == null) {
+                break;
             }
             long endIndex = (sliceIndex == sliceNum - 1) ? totalFileSize - 1 : (long) (sliceIndex + 1) * sliceSize - 1;//如果索引是sliceNum-1
             // 构建 OkHttp 请求，并设置 Range 请求头
