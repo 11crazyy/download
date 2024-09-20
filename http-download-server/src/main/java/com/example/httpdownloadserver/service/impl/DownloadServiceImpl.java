@@ -1,9 +1,12 @@
 package com.example.httpdownloadserver.service.impl;
 
+import com.example.httpdownloadserver.common.PowerConverter;
 import com.example.httpdownloadserver.dao.SettingsDAO;
 import com.example.httpdownloadserver.dao.TaskDAO;
+import com.example.httpdownloadserver.dataobject.TaskDO;
 import com.example.httpdownloadserver.model.SliceStatus;
 import com.example.httpdownloadserver.model.Task;
+import com.example.httpdownloadserver.model.TaskStatus;
 import com.example.httpdownloadserver.model.ThreadStatus;
 import com.example.httpdownloadserver.service.DownloadService;
 import com.google.common.util.concurrent.RateLimiter;
@@ -16,7 +19,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,6 +42,8 @@ public class DownloadServiceImpl implements DownloadService {
     private static final Logger LOGGER = LogManager.getLogger(DownloadServiceImpl.class);
     private static final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
     private static final Map<Long, ThreadStatus> threadMap = new HashMap<>();
+    private static final Map<Integer, SliceStatus> sliceMap = new ConcurrentHashMap<>();
+    private static final AtomicLong downloaded = new AtomicLong(0);
     private static final OkHttpClient client = new OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).writeTimeout(10, TimeUnit.SECONDS).build();
 
     @Override
@@ -63,21 +70,24 @@ public class DownloadServiceImpl implements DownloadService {
             throw new IOException("Content len is null");
         }
         Long fileSize = Long.parseLong(contentLen);
+        task.setContentLength(fileSize);
+        task.setThreadCount(threadNum);
         //获得切片大小
         int sliceSize = sliceSize(fileSize);
+        task.setShardSize(sliceSize);
         //切片个数
         int sliceNum = (int) Math.ceil((double) fileSize / sliceSize);
         //rateLimiter实现限速
         String speed = settingsDAO.selectByName("downloadSpeed").getSettingValue();//MB/s
         RateLimiter rateLimiter = RateLimiter.create(Double.parseDouble(speed) * 1024 * 1024);//每秒不超过指定的下载速度对应的字节数
-        AtomicLong downloaded = new AtomicLong(0);
-        Map<Integer, SliceStatus> sliceMap = new ConcurrentHashMap<>();
         for (int i = 0; i < sliceNum; i++) {
             sliceMap.put(i, SliceStatus.WAITING);
         }
-        //创建一个用于写文件下载分片下载进度的临时文件
+        TaskDO taskDO = PowerConverter.convert(task, TaskDO.class);
+        taskDO.setStatus(TaskStatus.PENDING.toString());
+        taskDAO.insert(taskDO);
         // todo 调度的时候如果需要减少线程，则随机挑选线程，将状态直接改为结束
-        File progressFile = new File(task.getDownloadPath() + ".tmp");
+        File progressFile = new File(task.getDownloadPath() + ".tmp");//记录进度的临时文件
         progressFile.createNewFile();
         for (int i = 0; i < threadNum; i++) {
             executor.submit(new DownloadTask(task, downloaded, fileSize, rateLimiter, emitter, sliceNum, sliceMap, sliceSize, progressFile, threadMap));//线程逻辑：负责任务调度
@@ -142,6 +152,36 @@ public class DownloadServiceImpl implements DownloadService {
 
     @Override
     public void resumeTask(Long taskId) {
+        TaskDO taskDO = taskDAO.selectById(taskId);
+        Task task = PowerConverter.convert(taskDO, Task.class);
+        task.setStatus(TaskStatus.valueOf(taskDO.getStatus()));
+        //根据路径找到进度文件
+        File progressFile = new File(task.getDownloadPath() + ".tmp");
+        if (progressFile.exists()) {
+            synchronized (progressFile) {
+                try (BufferedReader reader = new BufferedReader(new FileReader(progressFile))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        String[] parts = line.split(":");
+                        Integer sliceIndex = Integer.parseInt(parts[0]);
+                        SliceStatus status = SliceStatus.valueOf(parts[1]);
+                        sliceMap.put(sliceIndex, status);
+                        if (status == SliceStatus.DOWNLOADED) {
+                            downloaded.addAndGet(task.getShardSize());// 恢复已下载的字节数
+                            sliceMap.put(sliceIndex, SliceStatus.DOWNLOADING);
+                        }
+                    }
+                } catch (IOException e) {
+                    LOGGER.error("读取进度文件失败", e);
+                }
+            }
+        }
+        int sliceNum = (int) Math.ceil((double) task.getContentLength() / task.getShardSize());
+        String speed = settingsDAO.selectByName("downloadSpeed").getSettingValue();//MB/s
+        RateLimiter rateLimiter = RateLimiter.create(Double.parseDouble(speed) * 1024 * 1024);
+        for (int i = 0; i < task.getThreadCount(); i++) {
+            executor.submit(new DownloadTask(task, downloaded, task.getContentLength(), rateLimiter, new SseEmitter(), sliceNum, sliceMap, task.getShardSize(), progressFile, threadMap));//线程逻辑：负责任务调度
+        }
     }
 
     public int sliceSize(Long fileSize) {

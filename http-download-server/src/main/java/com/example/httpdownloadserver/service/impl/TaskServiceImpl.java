@@ -56,7 +56,7 @@ public class TaskServiceImpl implements TaskService {
             threadNum = "4";
         }
         taskDO.setDownloadThread(Integer.parseInt(threadNum));
-        taskDO.setStatus(String.valueOf(TaskStatus.Pending));
+        taskDO.setStatus(String.valueOf(TaskStatus.PENDING));
         taskDAO.insert(taskDO);
         //将任务信息存到下载队列中
         Task task = PowerConverter.convert(taskDO, Task.class);

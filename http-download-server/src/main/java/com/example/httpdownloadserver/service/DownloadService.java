@@ -4,7 +4,6 @@ import com.example.httpdownloadserver.model.Task;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public interface DownloadService {
     /**
