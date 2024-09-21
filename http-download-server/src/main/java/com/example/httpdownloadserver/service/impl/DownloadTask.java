@@ -59,7 +59,7 @@ public class DownloadTask implements Runnable {
     @Override
     public void run() {
         threadMap.put(Thread.currentThread().getId(), ThreadStatus.RUNNING);//线程状态：运行
-        Integer sliceIndex;//正在下载的分片的索引
+        Integer sliceIndex;
         while (true) {
             // 检查线程状态
             synchronized (threadMap) {
@@ -97,7 +97,6 @@ public class DownloadTask implements Runnable {
                         synchronized (threadMap) {
                             if (Thread.currentThread().isInterrupted() || threadMap.get(Thread.currentThread().getId()) == ThreadStatus.STOPPED) {
                                 LOGGER.info("线程被中断");
-
                                 saveProgress();  // 保存进度
                                 return;
                             }

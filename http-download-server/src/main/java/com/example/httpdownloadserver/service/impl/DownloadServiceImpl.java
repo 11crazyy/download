@@ -140,7 +140,13 @@ public class DownloadServiceImpl implements DownloadService {
                 threadMap.put(entry.getKey(), ThreadStatus.STOPPED);
             }
         }
+        for (Map.Entry<Integer, SliceStatus> entry : sliceMap.entrySet()) {
+            if (entry.getValue() == SliceStatus.DOWNLOADING) {
+                sliceMap.put(entry.getKey(), SliceStatus.WAITING);
+            }
+        }
     }
+
 
     @Override
     public void resumeTask(Long taskId) {
