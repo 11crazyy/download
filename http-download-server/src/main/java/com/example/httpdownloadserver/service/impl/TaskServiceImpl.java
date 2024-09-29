@@ -19,9 +19,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.yaml.snakeyaml.emitter.Emitter;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -34,13 +32,11 @@ public class TaskServiceImpl implements TaskService {
     private TaskDAO taskDAO;
     @Autowired
     private SettingsDAO settingsDAO;
-    private final ExecutorService executor = Executors.newFixedThreadPool(4);//任务下载线程池，最多同时下载4个文件
-    private final BlockingDeque<Task> taskDeque = new LinkedBlockingDeque<>();//线程安全，支持阻塞操作，适合生产者-消费者模式
-    private final ConcurrentHashMap<Long, Future<?>> taskFutures = new ConcurrentHashMap<>();//控制接口 更方便控制任务的暂停、继续、取消
+    private static final ThreadPoolExecutor executor = new ThreadPoolExecutor(4, 10, 0L, TimeUnit.MILLISECONDS, new SynchronousQueue<>());//任务下载线程池，最多同时下载4个文件
+    private final ConcurrentHashMap<Long, Future<?>> taskFutures = new ConcurrentHashMap<>();
 
     @Override
     public Task submitDownload(String url) {
-        //将下载任务存入数据库
         TaskDO taskDO = new TaskDO();
         taskDO.setDownloadLink(url);
         taskDO.setDownloadSpeed((double) 0);
@@ -58,30 +54,21 @@ public class TaskServiceImpl implements TaskService {
         taskDO.setThreadCount(Integer.parseInt(threadNum));
         taskDO.setStatus(String.valueOf(TaskStatus.PENDING));
         taskDAO.insert(taskDO);
-        //将任务信息存到下载队列中
         Task task = PowerConverter.convert(taskDO, Task.class);
         task.setStatus(TaskStatus.valueOf(taskDO.getStatus()));
-        taskDeque.offer(task);
-        //启动任务处理，从队列中取出任务并启动下载过程
-        processTasks();
-        return PowerConverter.convert(taskDO, Task.class);
+        processTasks(task);
+        return task;
     }
 
-    private void processTasks() {
-        while (!taskDeque.isEmpty()) {
-            Task task = taskDeque.poll();
-            if (task != null) {
-                Future<?> future = executor.submit(() -> {
-                    try {
-                        downloadService.download(task, task.getThreadCount());
-                    } catch (IOException e) {
-                        LOGGER.error("request error", e);
-                    }
-                });
-                //将任务的Future对象保存到ConcurrentHashMap中
-                taskFutures.put(task.getId(), future);
+    private void processTasks(Task task) {
+        Future<?> future = executor.submit(() -> {
+            try {
+                downloadService.download(task);
+            } catch (IOException e) {
+                LOGGER.error("request error", e);
             }
-        }
+        });
+        taskFutures.put(task.getId(), future);
     }
 
     @Override
@@ -94,8 +81,7 @@ public class TaskServiceImpl implements TaskService {
                 throw new RuntimeException("task not found:" + id);
             }
             Task task = PowerConverter.convert(taskDO, Task.class);
-            taskDeque.offer(task);
-            processTasks();
+            processTasks(task);
             return true;
         }
         return false;
@@ -117,7 +103,11 @@ public class TaskServiceImpl implements TaskService {
     public boolean cancelDownload(Long id) {
         Future<?> future = taskFutures.get(id);
         if (future != null) {
-            future.cancel(true);//取消下载任务
+            boolean cancel = future.cancel(true);//取消下载任务
+            if (!cancel) {
+                LOGGER.error("task cancel failed:" + id);
+                return false;
+            }
             //根据taskId获得相应的emitter 并用complete关闭连接
             SseEmitter emitter = downloadService.getEmitter(String.valueOf(id));
             if (emitter != null) {
@@ -187,7 +177,7 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public int updateThreadCount(Long taskId, int threadNum) {
-        return taskDAO.updateThreadById(taskId, threadNum);
+        return downloadService.updateThreadNum(taskId, threadNum);
     }
 
     @Override

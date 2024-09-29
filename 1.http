@@ -17,21 +17,28 @@ Content-Type: application/json
 [225,226,227]
 
 ###
-POST http://localhost:8080/task/restart
-Content-Type: application/x-www-form-urlencoded
-
-id=104
-
-###
 POST http://localhost:8080/task/resume
 Content-Type: application/x-www-form-urlencoded
 
-id=304
+id=539
+
+###
+POST http://localhost:8080/task/restart
+Content-Type: application/x-www-form-urlencoded
+
+id=457
+
 ###
 POST http://localhost:8080/task/pause
 Content-Type: application/x-www-form-urlencoded
 
-id=304
+id=539
+
+###
+POST http://localhost:8080/task/submit
+Content-Type: application/x-www-form-urlencoded
+
+url = https://nodejs.org/dist/v12.14.1/node-v12.14.1-x64.msi
 
 ####
 POST http://localhost:8080/task/submit
@@ -47,12 +54,12 @@ url=https://download.oracle.com/java/17/latest/jdk-17_windows-x64_bin.exe
 
 ####
 
-#POST http://localhost:8080/task/cancel
-#Content-Type: application/x-www-form-urlencoded
-#
-#id=221
+POST http://localhost:8080/task/cancel
+Content-Type: application/x-www-form-urlencoded
 
-####
+id=492
+
+###
 #POST http://localhost:8080/thread/update
 #Content-Type: application/json
 #
@@ -81,3 +88,11 @@ HEAD https://download.oracle.com/java/17/latest/jdk-17_windows-x64_bin.exe
 #  "settingValue": "100"
 #}
 
+###
+POST http://localhost:8080/thread/update
+Content-Type: application/json
+
+{
+  "taskId": 431,
+  "threadNum": 3
+}

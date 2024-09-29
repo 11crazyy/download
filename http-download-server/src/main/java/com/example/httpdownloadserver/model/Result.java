@@ -15,4 +15,13 @@ public class Result<D> implements Serializable {
 
     private D data;
 
+   public void setErrorResult(Result<?> result,String errorMessage){
+       result.setSuccess(false);
+       result.setMessage(errorMessage);
+   }
+
+   public void setSuccessResult(Result<?> result,String successMessage){
+       result.setSuccess(true);
+       result.setMessage(successMessage);
+   }
 }

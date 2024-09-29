@@ -40,7 +40,6 @@ public class TaskController {
         }
         return result;
     }
-
     /**
      * 重新开始下载任务
      * @param id
@@ -50,7 +49,10 @@ public class TaskController {
     @ResponseBody
     public Result<Boolean> restartDownload(@RequestParam Long id) {
         Result<Boolean> result = new Result<>();
-        if (isIdNull(result, id)) return result;
+        if (id == null) {
+            result.setErrorResult(result,"id is null");
+            return result;
+        }
         boolean success = taskService.restartDownload(id);
         if (success) {
             result.setSuccess(true);
@@ -58,12 +60,12 @@ public class TaskController {
             LOGGER.info("restart task success");
         } else {
             result.setSuccess(false);
+            result.setCode("600");
             result.setMessage("restart task failed");
             LOGGER.warn("restart task failed");
         }
         return result;
     }
-
     /**
      * 暂停下载任务
      * @param id
@@ -73,7 +75,10 @@ public class TaskController {
     @ResponseBody
     public Result<Boolean> pauseDownload(@RequestParam Long id) {
         Result<Boolean> result = new Result<>();
-        if (isIdNull(result, id)) return result;
+        if (id == null) {
+            result.setErrorResult(result,"id is null");
+            return result;
+        }
         boolean success = taskService.pauseDownload(id);
         if (success) {
             result.setSuccess(true);
@@ -84,7 +89,6 @@ public class TaskController {
         }
         return result;
     }
-
     /**
      * 继续下载任务
      * @param id
@@ -94,7 +98,10 @@ public class TaskController {
     @ResponseBody
     public Result<Boolean> resumeDownload(@RequestParam Long id) {
         Result<Boolean> result = new Result<>();
-        if (isIdNull(result, id)) return result;
+        if (id == null) {
+            result.setErrorResult(result,"id is null");
+            return result;
+        }
         boolean success = taskService.resumeDownload(id);
         if (success) {
             result.setSuccess(true);
@@ -105,7 +112,6 @@ public class TaskController {
         }
         return result;
     }
-
     /**
      * 所选文件取消下载
      * @param id
@@ -115,7 +121,10 @@ public class TaskController {
     @ResponseBody
     public Result<Boolean> cancelDownload(@RequestParam Long id) {
         Result<Boolean> result = new Result<>();
-        if (isIdNull(result, id)) return result;
+        if (id == null) {
+            result.setErrorResult(result,"id is null");
+            return result;
+        }
         boolean success = taskService.cancelDownload(id);
         if (success) {
             result.setSuccess(true);
@@ -136,7 +145,10 @@ public class TaskController {
     @ResponseBody
     public Result<Boolean> startDownloads(@RequestBody List<Long> ids) {
         Result<Boolean> result = new Result<>();
-        if (isIdsNull(result, ids)) return result;
+        if (ids == null) {
+            result.setErrorResult(result,"ids are null");
+            return result;
+        }
         boolean success = taskService.restartDownloads(ids);
         if (success) {
             result.setSuccess(true);
@@ -147,7 +159,6 @@ public class TaskController {
         }
         return result;
     }
-
     /**
      * 所选文件暂停下载
      * @param ids
@@ -157,7 +168,10 @@ public class TaskController {
     @ResponseBody
     public Result<Boolean> pauseDownloads(@RequestBody List<Long> ids) {
         Result<Boolean> result = new Result<>();
-        if (isIdsNull(result, ids)) return result;
+        if (ids == null) {
+            result.setErrorResult(result,"ids are null");
+            return result;
+        }
         boolean success = taskService.pauseDownloads(ids);
         if (success) {
             result.setSuccess(true);
@@ -170,7 +184,6 @@ public class TaskController {
         }
         return result;
     }
-
     /**
      * 所选文件继续下载
      * @param ids
@@ -180,7 +193,10 @@ public class TaskController {
     @ResponseBody
     public Result<Boolean> resumeDownloads(@RequestBody List<Long> ids) {
         Result<Boolean> result = new Result<>();
-        if (isIdsNull(result, ids)) return result;
+        if (ids == null) {
+            result.setErrorResult(result,"ids are null");
+            return result;
+        }
         boolean success = taskService.resumeDownloads(ids);
         if (success) {
             result.setSuccess(true);
@@ -191,7 +207,6 @@ public class TaskController {
         }
         return result;
     }
-
     /**
      * 所选文件取消下载
      * @param ids
@@ -201,7 +216,10 @@ public class TaskController {
     @ResponseBody
     public Result<Boolean> cancelDownloads(@RequestBody List<Long> ids) {
         Result<Boolean> result = new Result<>();
-        if (isIdsNull(result, ids)) return result;
+        if (ids == null) {
+            result.setErrorResult(result,"ids are null");
+            return result;
+        }
         boolean success = taskService.cancelDownloads(ids);
         if (success) {
             result.setSuccess(true);
@@ -214,8 +232,6 @@ public class TaskController {
         }
         return result;
     }
-
-
     /**
      * 获取线程数
      * @return
@@ -225,23 +241,17 @@ public class TaskController {
     public Result<Long> updateThread(@RequestBody ThreadUpdateParam param) {
         Result<Long> result = new Result<>();
         if (param == null) {
-            result.setSuccess(false);
-            result.setMessage("param is null");
-            LOGGER.warn("param is null");
-            return result;
+            result.setErrorResult(result,"param is null");
         }
         int updateRes = taskService.updateThreadCount(param.getTaskId(), param.getThreadNum());
         if (updateRes == 0){
-            result.setSuccess(false);
-            result.setMessage("update thread count failed");
+            result.setErrorResult(result,"update thread count failed");
             LOGGER.warn("update thread count failed");
             return result;
         }
-        result.setMessage("update thread count success");
-        result.setSuccess(true);
+        result.setSuccessResult(result,"update thread count success");
         return result;
     }
-
     /**
      * 根据下载状态筛选任务
      * @param status
@@ -252,33 +262,12 @@ public class TaskController {
     public Result<List<Task>> filterTasks(@RequestParam("status") String status) {
         Result<List<Task>> listResult = new Result<>();
         if (status == null) {
-            listResult.setSuccess(false);
-            listResult.setMessage("status is null");
+           listResult.setSuccessResult(listResult,"status is null");
             LOGGER.warn("status is null");
             return listResult;
         }
         listResult.setData(taskService.listByStatus(status));
-        listResult.setSuccess(true);
+        listResult.setSuccessResult(listResult,"filter tasks success");
         return listResult;
-    }
-
-    public boolean isIdNull(Result<?> result, Long id) {
-        if (id == null) {
-            result.setSuccess(false);
-            result.setMessage("id is null");
-            LOGGER.warn("id is null");
-            return true;
-        }
-        return false;
-    }
-
-    public boolean isIdsNull(Result<?> result, List<Long> ids) {
-        if (ids == null || ids.isEmpty()) {
-            result.setSuccess(false);
-            result.setMessage("ids is null");
-            LOGGER.warn("ids is null");
-            return true;
-        }
-        return false;
     }
 }

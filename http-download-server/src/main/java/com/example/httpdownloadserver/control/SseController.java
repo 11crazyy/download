@@ -8,6 +8,7 @@ import com.example.httpdownloadserver.service.DownloadService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.io.IOException;
@@ -18,5 +19,10 @@ public class SseController {
     private DownloadService downloadService;
     @Autowired
     private TaskDAO taskDAO;
+
+    @GetMapping("/task/sse")
+    public void sse(String taskId) throws IOException {
+
+    }
 
 }

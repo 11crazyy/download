@@ -12,17 +12,17 @@ public interface DownloadService {
      * @param task
      * @return
      */
-    void download(Task task, int threadNum) throws IOException;
-
+    void download(Task task) throws IOException;
     /**
      * 根据id获得SseEmitter
      *
      * @param taskId
      * @return
      */
-
     SseEmitter getEmitter(String taskId);
     void pauseTask(Long taskId);
+
+    int updateThreadNum(Long taskId, int threadNum);
 
     void resumeTask(Long taskId);
 }
