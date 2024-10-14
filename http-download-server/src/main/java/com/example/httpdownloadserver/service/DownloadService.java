@@ -12,7 +12,7 @@ public interface DownloadService {
      * @param task
      * @return
      */
-    void download(Task task) throws IOException;
+    void download(Task task);
     /**
      * 根据id获得SseEmitter
      *

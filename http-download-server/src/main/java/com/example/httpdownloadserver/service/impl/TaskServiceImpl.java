@@ -62,11 +62,7 @@ public class TaskServiceImpl implements TaskService {
 
     private void processTasks(Task task) {
         Future<?> future = executor.submit(() -> {
-            try {
-                downloadService.download(task);
-            } catch (IOException e) {
-                LOGGER.error("request error", e);
-            }
+            downloadService.download(task);
         });
         taskFutures.put(task.getId(), future);
     }
@@ -190,4 +186,5 @@ public class TaskServiceImpl implements TaskService {
         List<TaskDO> taskDOS = taskDAO.selectByStatus(status);
         return PowerConverter.batchConvert(taskDOS, Task.class);
     }
+
 }

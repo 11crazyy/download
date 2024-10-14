@@ -14,6 +14,7 @@ import okhttp3.Response;
 import okhttp3.ResponseBody;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.*;
@@ -27,14 +28,12 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class DownloadTask implements Runnable {
     private static final int MAX_RETRY_COUNT = 3;
-    // private final Map<Long, ThreadStatus> threadMap;
     private static final Logger LOGGER = LogManager.getLogger(DownloadTask.class);
     private final String fileUrl;
     private AtomicLong bytesDownloaded;
     private final Long totalFileSize;
     private final Task task;//计算剩余时间等属性
     private final Map<Long, ConcurrentHashMap<Integer, SliceStatus>> sliceMap;
-    // private final Map<Long, ConcurrentHashMap<Long, ThreadStatus>> threadMap;
     private final Map<Long, ConcurrentHashMap<Long, ThreadStatus>> threadMap;
     private final RateLimiter rateLimiter;
     private final File progressFile;
@@ -44,8 +43,8 @@ public class DownloadTask implements Runnable {
     private final SseEmitter emitter;
     //private final Object lock = new Object();//锁 用于同步访问emitter和标志位
     //private final AtomicBoolean isEmitterCompleted = new AtomicBoolean(false);//标志位 用于判断emitter是否已经完成
-
-    public DownloadTask(Task task, AtomicLong bytesDownloaded, Long totalFileSize, RateLimiter rateLimiter, SseEmitter emitter, int sliceNum, Map<Long, ConcurrentHashMap<Integer, SliceStatus>> sliceMap, int sliceSize, File progressFile, Map<Long, ConcurrentHashMap<Long, ThreadStatus>> threadMap) {
+    private TaskDAO taskDAO;
+    public DownloadTask(Task task, AtomicLong bytesDownloaded, Long totalFileSize, RateLimiter rateLimiter, SseEmitter emitter, int sliceNum, Map<Long, ConcurrentHashMap<Integer, SliceStatus>> sliceMap, int sliceSize, File progressFile, Map<Long, ConcurrentHashMap<Long, ThreadStatus>> threadMap,TaskDAO taskDAO) {
         this.task = task;
         this.fileUrl = task.getDownloadLink();
         this.bytesDownloaded = bytesDownloaded;
@@ -57,6 +56,7 @@ public class DownloadTask implements Runnable {
         this.sliceMap = sliceMap;
         this.sliceSize = sliceSize;
         this.progressFile = progressFile;
+        this.taskDAO = taskDAO;
     }
 
     //任务逻辑：下载任务 计算剩余时间 下载进度 以及下载速度
@@ -159,6 +159,9 @@ public class DownloadTask implements Runnable {
         long remainingBytes = totalFileSize - bytesDownloaded.get();
         double remainingTime = remainingBytes / downloadSpeed;  // 单位秒
         task.setDownloadRemainingTime((long) remainingTime);
+        TaskDO taskDO = PowerConverter.convert(task,TaskDO.class);
+        taskDO.setStatus("Downloading");
+        taskDAO.updateById(taskDO);
         return new DownloadProgress((int) progress, downloadSpeed / 1024, (long) remainingTime, bytesDownloaded.get());
     }
 
